@@ -272,76 +272,64 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             })}
           </div>
 
-          {/* Navigation Route - Duong cham cham */}
+          {/* Navigation Route - Duong cham cham bang div/css thay vi SVG */}
           {isNavigating && selectedSlotIndex >= 0 && (
-            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="route-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
-                  <stop offset="0%" stopColor="#38BDF8" />
-                  <stop offset="100%" stopColor="#10B981" />
-                </linearGradient>
-                {/* Animation cho duong cham */}
-                <style>
-                  {`
-                    @keyframes dash {
-                      to {
-                        stroke-dashoffset: -20;
-                      }
-                    }
-                    .animated-dash {
-                      animation: dash 1s linear infinite;
-                    }
-                  `}
-                </style>
-              </defs>
-              
-              {/* Duong vien mo */}
-              <path
-                d={generateRoutePath()}
-                fill="none"
-                stroke="#38BDF8"
-                strokeWidth="3"
-                strokeOpacity="0.3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
+            <>
+              {/* Duong doc tu vi tri hien tai len diem re */}
+              <div 
+                className="absolute left-1/2 -translate-x-1/2 w-1 border-l-4 border-dashed border-[#38BDF8] z-20"
+                style={{
+                  top: '25%',
+                  height: `${userPosition.y - 25}%`,
+                  animation: 'dash-move 1s linear infinite'
+                }}
               />
               
-              {/* Duong cham cham chinh */}
-              <path
-                d={generateRoutePath()}
-                fill="none"
-                stroke="url(#route-gradient)"
-                strokeWidth="2"
-                strokeDasharray="6,4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                vectorEffect="non-scaling-stroke"
-                className="animated-dash"
+              {/* Duong ngang tu giua re sang trai/phai */}
+              <div 
+                className="absolute top-[25%] h-1 border-t-4 border-dashed border-[#38BDF8] z-20"
+                style={{
+                  left: isLeftColumn ? '20%' : '50%',
+                  width: isLeftColumn ? '30%' : '30%',
+                }}
               />
               
-              {/* Mui ten chi huong tai cac diem re */}
-              <circle cx={userPosition.x} cy="60" r="1.5" fill="#38BDF8" />
-              <circle cx={isLeftColumn ? 35 : 65} cy="60" r="1.5" fill="#38BDF8" />
-              <circle cx={isLeftColumn ? 35 : 65} cy={targetY + 5} r="1.5" fill="#38BDF8" />
+              {/* Duong doc tu diem re xuong vi tri o do xe */}
+              <div 
+                className="absolute w-1 border-l-4 border-dashed border-[#38BDF8] z-20"
+                style={{
+                  left: isLeftColumn ? '20%' : '80%',
+                  top: `${12 + (rowIndex * 13)}%`,
+                  height: `${25 - (12 + (rowIndex * 13))}%`,
+                }}
+              />
               
-              {/* Destination marker */}
-              <circle 
-                cx={targetX} 
-                cy={targetY} 
-                r="3" 
-                fill="#10B981" 
+              {/* Diem re 1 - o giua duong */}
+              <div 
+                className="absolute w-4 h-4 bg-[#38BDF8] rounded-full border-2 border-white shadow-lg z-30 -translate-x-1/2 -translate-y-1/2"
+                style={{ left: '50%', top: '25%' }}
               />
-              <circle 
-                cx={targetX} 
-                cy={targetY} 
-                r="5" 
-                fill="none"
-                stroke="#10B981"
-                strokeWidth="1"
-                opacity="0.5"
+              
+              {/* Diem re 2 - truoc khi vao o do xe */}
+              <div 
+                className="absolute w-4 h-4 bg-[#F59E0B] rounded-full border-2 border-white shadow-lg z-30 -translate-x-1/2 -translate-y-1/2"
+                style={{ left: isLeftColumn ? '20%' : '80%', top: '25%' }}
               />
-            </svg>
+              
+              {/* Diem dich - o do xe */}
+              <div 
+                className="absolute w-5 h-5 bg-[#10B981] rounded-full border-2 border-white shadow-lg z-30 -translate-x-1/2 -translate-y-1/2 animate-pulse"
+                style={{ left: isLeftColumn ? '20%' : '80%', top: `${12 + (rowIndex * 13)}%` }}
+              />
+
+              {/* CSS animation */}
+              <style jsx>{`
+                @keyframes dash-move {
+                  0% { background-position: 0 0; }
+                  100% { background-position: 0 20px; }
+                }
+              `}</style>
+            </>
           )}
 
           {/* User Position Marker */}
