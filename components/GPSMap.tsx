@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from 'react'
-import { Navigation, MapPin, Car, Clock, Route, X, Locate, AlertCircle } from 'lucide-react'
+import { Navigation, MapPin, Car, Clock, Route, X, Locate, AlertCircle, ArrowUp, ArrowLeft, ArrowRight, CornerDownLeft, CornerDownRight, CheckCircle2, CircleDot } from 'lucide-react'
 
 interface GPSMapProps {
   selectedZoneId: string | null
@@ -37,7 +37,64 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   const [isTracking, setIsTracking] = useState(true)
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null)
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [currentStep, setCurrentStep] = useState(0)
   const watchIdRef = useRef<number | null>(null)
+
+  // Tạo các bước chỉ dẫn dựa trên vị trí người dùng và đích đến
+  const generateNavigationSteps = () => {
+    if (!userPosition || selectedSlotIndex < 0) return []
+    
+    const targetX = isLeftColumn ? 20 : 80
+    const targetY = 15 + (rowIndex * 12)
+    const steps: { icon: typeof ArrowUp; text: string; detail: string; completed: boolean }[] = []
+    
+    // Bước 1: Từ cổng vào đi thẳng vào khu vực
+    const distanceToCenter = Math.abs(userPosition.y - 50) * 0.5
+    steps.push({
+      icon: ArrowUp,
+      text: 'Di thang vao khu vuc',
+      detail: `Di thang ${Math.round(distanceToCenter)}m tu cong vao`,
+      completed: userPosition.y < 70
+    })
+    
+    // Bước 2: Rẽ trái hoặc phải vào hàng ô đỗ xe
+    if (isLeftColumn) {
+      steps.push({
+        icon: CornerDownLeft,
+        text: 'Re trai vao hang do xe',
+        detail: `Re trai, hang o do xe ben trai`,
+        completed: userPosition.y < targetY + 10 && userPosition.x < 50
+      })
+    } else {
+      steps.push({
+        icon: CornerDownRight,
+        text: 'Re phai vao hang do xe',
+        detail: `Re phai, hang o do xe ben phai`,
+        completed: userPosition.y < targetY + 10 && userPosition.x > 50
+      })
+    }
+    
+    // Bước 3: Đi đến vị trí cụ thể
+    const slotNumber = selectedSlotIndex + 1
+    steps.push({
+      icon: CircleDot,
+      text: `Tim ${selectedSlotName}`,
+      detail: `O do xe thu ${slotNumber <= 6 ? slotNumber : slotNumber - 6} trong hang`,
+      completed: Math.abs(userPosition.x - targetX) < 15 && Math.abs(userPosition.y - targetY) < 10
+    })
+    
+    // Bước 4: Đỗ xe
+    steps.push({
+      icon: CheckCircle2,
+      text: 'Do xe tai vi tri',
+      detail: `${selectedSlotName} - O do xe mau xanh la`,
+      completed: Math.abs(userPosition.x - targetX) < 10 && Math.abs(userPosition.y - targetY) < 8
+    })
+    
+    return steps
+  }
+
+  const navigationSteps = generateNavigationSteps()
 
   const zone = selectedZoneId ? zoneInfo[selectedZoneId] : null
   const slots = selectedZoneId ? generateSlots(selectedZoneId) : []
@@ -229,6 +286,73 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
           </div>
         )}
       </div>
+
+      {/* Navigation Instructions Panel */}
+      {isNavigating && navigationSteps.length > 0 && (
+        <div className="bg-white border-b border-[#64748B]/20 px-6 py-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Navigation size={18} className="text-[#0284C7]" />
+            <h3 className="font-bold text-[#1E293B]">Chi dan cu the</h3>
+          </div>
+          <div className="space-y-2">
+            {navigationSteps.map((step, index) => {
+              const StepIcon = step.icon
+              const isActive = !step.completed && (index === 0 || navigationSteps[index - 1].completed)
+              return (
+                <div 
+                  key={index}
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                    step.completed 
+                      ? 'bg-[#10B981]/10 border border-[#10B981]/30' 
+                      : isActive
+                        ? 'bg-[#0284C7]/10 border-2 border-[#0284C7] shadow-sm'
+                        : 'bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    step.completed 
+                      ? 'bg-[#10B981] text-white' 
+                      : isActive
+                        ? 'bg-[#0284C7] text-white animate-pulse'
+                        : 'bg-slate-200 text-[#64748B]'
+                  }`}>
+                    {step.completed ? (
+                      <CheckCircle2 size={20} />
+                    ) : (
+                      <StepIcon size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-semibold ${
+                      step.completed 
+                        ? 'text-[#10B981]' 
+                        : isActive 
+                          ? 'text-[#0284C7]' 
+                          : 'text-[#64748B]'
+                    }`}>
+                      {step.text}
+                    </p>
+                    <p className={`text-sm ${
+                      step.completed || isActive ? 'text-[#64748B]' : 'text-slate-400'
+                    }`}>
+                      {step.detail}
+                    </p>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    step.completed 
+                      ? 'bg-[#10B981] text-white' 
+                      : isActive
+                        ? 'bg-[#0284C7] text-white'
+                        : 'bg-slate-200 text-[#64748B]'
+                  }`}>
+                    {index + 1}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Main 2D Floor Plan */}
       <div className="flex-1 p-6">
