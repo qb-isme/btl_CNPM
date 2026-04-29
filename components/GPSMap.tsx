@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState, useRef } from 'react'
-import { Navigation, MapPin, Car, Clock, Route, X, Locate, AlertCircle, ArrowUp, ArrowLeft, ArrowRight, CornerDownLeft, CornerDownRight, CheckCircle2, CircleDot } from 'lucide-react'
+import { useState } from 'react'
+import { Navigation, MapPin, Car, Clock, Route, X, ArrowUp, CornerDownLeft, CornerDownRight, CheckCircle2, CircleDot, Play } from 'lucide-react'
 
 interface GPSMapProps {
   selectedZoneId: string | null
@@ -10,7 +10,7 @@ interface GPSMapProps {
   onClose: () => void
 }
 
-// Giả lập các slot trong khu vực (giống như trong page.tsx)
+// Gia lap cac slot trong khu vuc
 const generateSlots = (zoneId: string) => {
   return Array.from({ length: 12 }).map((_, i) => ({
     id: `${zoneId}-${i + 1}`,
@@ -19,218 +19,100 @@ const generateSlots = (zoneId: string) => {
   }));
 };
 
-// Thông tin các khu vực
-const zoneInfo: Record<string, { name: string; gpsCenter: { lat: number; lng: number } }> = {
-  'A': { name: 'Khu A (Gan cong)', gpsCenter: { lat: 10.8805, lng: 106.8050 } },
-  'B': { name: 'Khu B (Trung tam)', gpsCenter: { lat: 10.8810, lng: 106.8060 } },
-  'C': { name: 'Khu C (Can tin)', gpsCenter: { lat: 10.8795, lng: 106.8065 } },
-  'D': { name: 'Khu D (Khuat)', gpsCenter: { lat: 10.8815, lng: 106.8045 } },
-  'E': { name: 'Khu E (Can bo GV)', gpsCenter: { lat: 10.8790, lng: 106.8055 } },
-  'F': { name: 'Khu F (Mo rong)', gpsCenter: { lat: 10.8808, lng: 106.8070 } },
+// Thong tin cac khu vuc
+const zoneInfo: Record<string, { name: string }> = {
+  'A': { name: 'Khu A (Gan cong)' },
+  'B': { name: 'Khu B (Trung tam)' },
+  'C': { name: 'Khu C (Can tin)' },
+  'D': { name: 'Khu D (Khuat)' },
+  'E': { name: 'Khu E (Can bo GV)' },
+  'F': { name: 'Khu F (Mo rong)' },
 };
 
 export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating, onClose }: GPSMapProps) {
-  const [userPosition, setUserPosition] = useState<{ x: number; y: number } | null>(null)
-  const [accuracy, setAccuracy] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [gpsError, setGpsError] = useState<string | null>(null)
-  const [isTracking, setIsTracking] = useState(true)
-  const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null)
-  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null)
-  const [currentStep, setCurrentStep] = useState(0)
-  const watchIdRef = useRef<number | null>(null)
-
-  // Tạo các bước chỉ dẫn dựa trên vị trí người dùng và đích đến
-  const generateNavigationSteps = () => {
-    if (!userPosition || selectedSlotIndex < 0) return []
-    
-    const targetX = isLeftColumn ? 20 : 80
-    const targetY = 15 + (rowIndex * 12)
-    const steps: { icon: typeof ArrowUp; text: string; detail: string; completed: boolean }[] = []
-    
-    // Bước 1: Từ cổng vào đi thẳng vào khu vực
-    const distanceToCenter = Math.abs(userPosition.y - 50) * 0.5
-    steps.push({
-      icon: ArrowUp,
-      text: 'Di thang vao khu vuc',
-      detail: `Di thang ${Math.round(distanceToCenter)}m tu cong vao`,
-      completed: userPosition.y < 70
-    })
-    
-    // Bước 2: Rẽ trái hoặc phải vào hàng ô đỗ xe
-    if (isLeftColumn) {
-      steps.push({
-        icon: CornerDownLeft,
-        text: 'Re trai vao hang do xe',
-        detail: `Re trai, hang o do xe ben trai`,
-        completed: userPosition.y < targetY + 10 && userPosition.x < 50
-      })
-    } else {
-      steps.push({
-        icon: CornerDownRight,
-        text: 'Re phai vao hang do xe',
-        detail: `Re phai, hang o do xe ben phai`,
-        completed: userPosition.y < targetY + 10 && userPosition.x > 50
-      })
-    }
-    
-    // Bước 3: Đi đến vị trí cụ thể
-    const slotNumber = selectedSlotIndex + 1
-    steps.push({
-      icon: CircleDot,
-      text: `Tim ${selectedSlotName}`,
-      detail: `O do xe thu ${slotNumber <= 6 ? slotNumber : slotNumber - 6} trong hang`,
-      completed: Math.abs(userPosition.x - targetX) < 15 && Math.abs(userPosition.y - targetY) < 10
-    })
-    
-    // Bước 4: Đỗ xe
-    steps.push({
-      icon: CheckCircle2,
-      text: 'Do xe tai vi tri',
-      detail: `${selectedSlotName} - O do xe mau xanh la`,
-      completed: Math.abs(userPosition.x - targetX) < 10 && Math.abs(userPosition.y - targetY) < 8
-    })
-    
-    return steps
-  }
-
-  const navigationSteps = generateNavigationSteps()
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: 50, y: 92 })
 
   const zone = selectedZoneId ? zoneInfo[selectedZoneId] : null
   const slots = selectedZoneId ? generateSlots(selectedZoneId) : []
   
-  // Tìm slot đã chọn
+  // Tim slot da chon
   const selectedSlotIndex = slots.findIndex(s => s.name === selectedSlotName)
   const isLeftColumn = selectedSlotIndex < 6
   const rowIndex = isLeftColumn ? selectedSlotIndex : selectedSlotIndex - 6
 
-  // Chuyển đổi GPS thành vị trí trên sơ đồ 2D
-  const gpsToFloorPosition = (lat: number, lng: number): { x: number; y: number } => {
-    if (!zone) return { x: 50, y: 95 }
+  // Vi tri dich den tren so do
+  const targetX = isLeftColumn ? 20 : 80
+  const targetY = 15 + (rowIndex * 12)
+
+  // Cac buoc chi dan co dinh
+  const getNavigationSteps = () => {
+    if (selectedSlotIndex < 0) return []
     
-    // Tính khoảng cách từ tâm khu vực (theo mét)
-    const deltaLat = (lat - zone.gpsCenter.lat) * 111320
-    const deltaLng = (lng - zone.gpsCenter.lng) * 111320 * Math.cos(zone.gpsCenter.lat * Math.PI / 180)
+    const slotNumber = selectedSlotIndex + 1
+    const rowNumber = slotNumber <= 6 ? slotNumber : slotNumber - 6
     
-    // Chuyển sang vị trí trên sơ đồ (giả sử khu vực 50m x 50m)
-    // X: 0-100, trung tâm là 50
-    // Y: 0-100, cổng vào ở dưới (95)
-    const x = 50 + (deltaLng / 25) * 50 // 25m mỗi bên
-    const y = 80 - (deltaLat / 40) * 70 // 40m từ cổng đến cuối khu
-    
-    return {
-      x: Math.max(5, Math.min(95, x)),
-      y: Math.max(10, Math.min(95, y))
-    }
+    return [
+      {
+        icon: ArrowUp,
+        text: 'Di thang vao khu vuc',
+        detail: 'Di thang khoang 15m tu cong vao',
+        position: { x: 50, y: 70 }
+      },
+      {
+        icon: isLeftColumn ? CornerDownLeft : CornerDownRight,
+        text: isLeftColumn ? 'Re trai vao hang do xe' : 'Re phai vao hang do xe',
+        detail: isLeftColumn ? 'Hang o do xe ben trai' : 'Hang o do xe ben phai',
+        position: { x: isLeftColumn ? 35 : 65, y: targetY + 20 }
+      },
+      {
+        icon: CircleDot,
+        text: `Tim ${selectedSlotName}`,
+        detail: `O do xe thu ${rowNumber} trong hang`,
+        position: { x: targetX, y: targetY + 5 }
+      },
+      {
+        icon: CheckCircle2,
+        text: 'Do xe tai vi tri',
+        detail: `${selectedSlotName} - O mau xanh la`,
+        position: { x: targetX, y: targetY }
+      }
+    ]
   }
 
-  // Lấy vị trí GPS
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setGpsError('Trinh duyet khong ho tro GPS')
-      // Fallback - giả lập vị trí tại cổng vào
-      setUserPosition({ x: 50, y: 92 })
-      setIsLoading(false)
-      return
-    }
+  const navigationSteps = getNavigationSteps()
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-        setGpsCoords(coords)
-        setUserPosition(gpsToFloorPosition(coords.lat, coords.lng))
-        setAccuracy(pos.coords.accuracy)
-        setIsLoading(false)
-      },
-      (err) => {
-        setGpsError(err.message)
-        // Fallback - giả lập vị trí tại cổng vào
-        setUserPosition({ x: 50, y: 92 })
-        setIsLoading(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
+  // Mo phong di chuyen
+  const startSimulation = () => {
+    setIsSimulating(true)
+    setCurrentStepIndex(0)
+    setUserPosition({ x: 50, y: 92 })
 
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
-      }
-    }
-  }, [zone])
-
-  // Theo dõi GPS real-time
-  useEffect(() => {
-    if (!isTracking || !navigator.geolocation) return
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-        setGpsCoords(coords)
-        setUserPosition(gpsToFloorPosition(coords.lat, coords.lng))
-        setAccuracy(pos.coords.accuracy)
-        setGpsError(null)
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    )
-
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
-        watchIdRef.current = null
-      }
-    }
-  }, [isTracking, zone])
-
-  // Tính khoảng cách và thời gian
-  useEffect(() => {
-    if (!userPosition || selectedSlotIndex < 0 || !isNavigating) {
-      setRouteInfo(null)
-      return
-    }
-
-    // Tính toán vị trí đích trên sơ đồ
-    const targetX = isLeftColumn ? 20 : 80
-    const targetY = 15 + (rowIndex * 12)
-    
-    // Ước tính khoảng cách (giả sử mỗi đơn vị = 0.5m)
-    const dx = (targetX - userPosition.x) * 0.5
-    const dy = (targetY - userPosition.y) * 0.5
-    const distanceMeters = Math.sqrt(dx * dx + dy * dy)
-    
-    const distanceDisplay = `${Math.round(distanceMeters)} m`
-    const durationSeconds = distanceMeters / 1.2 // Tốc độ đi bộ 1.2m/s
-    const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60))
-    
-    setRouteInfo({
-      distance: distanceDisplay,
-      duration: `${durationMinutes} phut`
+    navigationSteps.forEach((step, index) => {
+      setTimeout(() => {
+        setCurrentStepIndex(index)
+        setUserPosition(step.position)
+        
+        if (index === navigationSteps.length - 1) {
+          setTimeout(() => {
+            setIsSimulating(false)
+          }, 1500)
+        }
+      }, (index + 1) * 2000)
     })
-  }, [userPosition, selectedSlotIndex, isLeftColumn, rowIndex, isNavigating])
-
-  // Tạo đường đi SVG
-  const generateRoutePath = () => {
-    if (!userPosition || selectedSlotIndex < 0) return ''
-    
-    const startX = userPosition.x
-    const startY = userPosition.y
-    const targetX = isLeftColumn ? 20 : 80
-    const targetY = 15 + (rowIndex * 12)
-    
-    // Đường đi: từ vị trí hiện tại -> giữa đường -> đến ô đỗ
-    return `M ${startX} ${startY} L 50 ${startY} L 50 ${targetY} L ${targetX} ${targetY}`
   }
 
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-[#1E293B]">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-[#0284C7] border-t-transparent mx-auto mb-4"></div>
-          <p className="text-lg">Dang xac dinh vi tri GPS...</p>
-          <p className="text-sm text-slate-400 mt-2">Vui long cho phep truy cap vi tri</p>
-        </div>
-      </div>
-    )
+  // Tao duong di SVG
+  const generateRoutePath = () => {
+    if (selectedSlotIndex < 0) return ''
+    return `M 50 92 L 50 ${targetY + 20} L ${targetX} ${targetY + 20} L ${targetX} ${targetY}`
+  }
+
+  // Tinh khoang cach va thoi gian uoc tinh
+  const routeInfo = {
+    distance: `${15 + Math.abs(50 - targetX) * 0.3 + (92 - targetY) * 0.3}`.slice(0, 4) + ' m',
+    duration: '1-2 phut'
   }
 
   return (
@@ -242,7 +124,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             <Navigation className="text-[#0284C7]" size={28} />
             <div>
               <h2 className="font-bold text-[#1E293B] text-xl">So do 2D - {zone?.name}</h2>
-              <p className="text-sm text-[#64748B]">Tich hop dinh vi GPS</p>
+              <p className="text-sm text-[#64748B]">Mo phong chi dan duong di</p>
             </div>
           </div>
           <button
@@ -264,24 +146,22 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                 </div>
                 <p className="font-bold text-[#1E293B] text-lg">{selectedSlotName}</p>
               </div>
-              {routeInfo && (
-                <div className="flex gap-6">
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-[#64748B]">
-                      <Route size={14} />
-                      <span className="text-xs">Khoang cach</span>
-                    </div>
-                    <p className="font-bold text-[#0284C7] text-lg">{routeInfo.distance}</p>
+              <div className="flex gap-6">
+                <div className="text-center">
+                  <div className="flex items-center gap-1 text-[#64748B]">
+                    <Route size={14} />
+                    <span className="text-xs">Khoang cach</span>
                   </div>
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-[#64748B]">
-                      <Clock size={14} />
-                      <span className="text-xs">Thoi gian</span>
-                    </div>
-                    <p className="font-bold text-[#10B981] text-lg">{routeInfo.duration}</p>
-                  </div>
+                  <p className="font-bold text-[#0284C7] text-lg">{routeInfo.distance}</p>
                 </div>
-              )}
+                <div className="text-center">
+                  <div className="flex items-center gap-1 text-[#64748B]">
+                    <Clock size={14} />
+                    <span className="text-xs">Thoi gian</span>
+                  </div>
+                  <p className="font-bold text-[#10B981] text-lg">{routeInfo.duration}</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -290,19 +170,34 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
       {/* Navigation Instructions Panel */}
       {isNavigating && navigationSteps.length > 0 && (
         <div className="bg-white border-b border-[#64748B]/20 px-6 py-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Navigation size={18} className="text-[#0284C7]" />
-            <h3 className="font-bold text-[#1E293B]">Chi dan cu the</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Navigation size={18} className="text-[#0284C7]" />
+              <h3 className="font-bold text-[#1E293B]">Chi dan cu the</h3>
+            </div>
+            <button
+              onClick={startSimulation}
+              disabled={isSimulating}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                isSimulating 
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                  : 'bg-[#0284C7] text-white hover:bg-[#0369A1]'
+              }`}
+            >
+              <Play size={16} />
+              {isSimulating ? 'Dang mo phong...' : 'Bat dau mo phong'}
+            </button>
           </div>
           <div className="space-y-2">
             {navigationSteps.map((step, index) => {
               const StepIcon = step.icon
-              const isActive = !step.completed && (index === 0 || navigationSteps[index - 1].completed)
+              const isCompleted = isSimulating && currentStepIndex > index
+              const isActive = isSimulating && currentStepIndex === index
               return (
                 <div 
                   key={index}
                   className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    step.completed 
+                    isCompleted 
                       ? 'bg-[#10B981]/10 border border-[#10B981]/30' 
                       : isActive
                         ? 'bg-[#0284C7]/10 border-2 border-[#0284C7] shadow-sm'
@@ -310,13 +205,13 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    step.completed 
+                    isCompleted 
                       ? 'bg-[#10B981] text-white' 
                       : isActive
                         ? 'bg-[#0284C7] text-white animate-pulse'
                         : 'bg-slate-200 text-[#64748B]'
                   }`}>
-                    {step.completed ? (
+                    {isCompleted ? (
                       <CheckCircle2 size={20} />
                     ) : (
                       <StepIcon size={20} />
@@ -324,7 +219,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`font-semibold ${
-                      step.completed 
+                      isCompleted 
                         ? 'text-[#10B981]' 
                         : isActive 
                           ? 'text-[#0284C7]' 
@@ -333,13 +228,13 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                       {step.text}
                     </p>
                     <p className={`text-sm ${
-                      step.completed || isActive ? 'text-[#64748B]' : 'text-slate-400'
+                      isCompleted || isActive ? 'text-[#64748B]' : 'text-slate-400'
                     }`}>
                       {step.detail}
                     </p>
                   </div>
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    step.completed 
+                    isCompleted 
                       ? 'bg-[#10B981] text-white' 
                       : isActive
                         ? 'bg-[#0284C7] text-white'
@@ -355,7 +250,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
       )}
 
       {/* Main 2D Floor Plan */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-4">
         <div className="w-full h-full bg-[#1E293B] rounded-2xl relative overflow-hidden border-4 border-white shadow-lg">
           {/* Grid background */}
           <div className="absolute inset-0 opacity-10">
@@ -375,12 +270,12 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
 
           {/* Parking Slots - Left Column */}
           <div className="absolute left-[5%] top-[10%] w-[30%] h-[75%] flex flex-col gap-2">
-            {slots.slice(0, 6).map((slot, index) => {
+            {slots.slice(0, 6).map((slot) => {
               const isSelected = slot.name === selectedSlotName
               return (
                 <div 
                   key={slot.id}
-                  className={`flex-1 rounded-xl border-2 flex items-center justify-center font-bold text-lg transition-all
+                  className={`flex-1 rounded-xl border-2 flex items-center justify-center font-bold text-lg transition-all relative
                     ${slot.isOccupied 
                       ? 'bg-[#EF4444]/20 border-[#EF4444] text-[#EF4444]' 
                       : isSelected
@@ -390,9 +285,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                 >
                   {slot.isOccupied ? <Car size={28} /> : slot.name}
                   {isSelected && (
-                    <div className="absolute">
-                      <div className="animate-ping absolute inset-0 rounded-xl bg-[#10B981]/30"></div>
-                    </div>
+                    <div className="absolute inset-0 rounded-xl animate-ping bg-[#10B981]/20"></div>
                   )}
                 </div>
               )
@@ -406,7 +299,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
               return (
                 <div 
                   key={slot.id}
-                  className={`flex-1 rounded-xl border-2 flex items-center justify-center font-bold text-lg transition-all
+                  className={`flex-1 rounded-xl border-2 flex items-center justify-center font-bold text-lg transition-all relative
                     ${slot.isOccupied 
                       ? 'bg-[#EF4444]/20 border-[#EF4444] text-[#EF4444]' 
                       : isSelected
@@ -415,13 +308,16 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                   `}
                 >
                   {slot.isOccupied ? <Car size={28} /> : slot.name}
+                  {isSelected && (
+                    <div className="absolute inset-0 rounded-xl animate-ping bg-[#10B981]/20"></div>
+                  )}
                 </div>
               )
             })}
           </div>
 
           {/* Navigation Route */}
-          {isNavigating && userPosition && selectedSlotIndex >= 0 && (
+          {isNavigating && selectedSlotIndex >= 0 && (
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <defs>
                 <linearGradient id="route-gradient" x1="0%" y1="100%" x2="0%" y2="0%">
@@ -433,132 +329,84 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                 d={generateRoutePath()}
                 fill="none"
                 stroke="url(#route-gradient)"
-                strokeWidth="1"
+                strokeWidth="1.5"
                 strokeDasharray="4,2"
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
-                className="animate-dash"
+                className="animate-pulse"
               />
               {/* Destination marker */}
               <circle 
-                cx={isLeftColumn ? 20 : 80} 
-                cy={15 + (rowIndex * 12)} 
-                r="1.5" 
+                cx={targetX} 
+                cy={targetY} 
+                r="2" 
                 fill="#10B981" 
                 className="animate-pulse"
               />
             </svg>
           )}
 
-          {/* User Position Marker */}
-          {userPosition && (
+          {/* User Position Marker (Simulation) */}
+          {isNavigating && (
             <div
-              className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2"
+              className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-in-out"
               style={{ left: `${userPosition.x}%`, top: `${userPosition.y}%` }}
             >
-              {/* Accuracy circle */}
-              <div
-                className="absolute rounded-full bg-[#38BDF8]/20 border border-[#38BDF8]/30 -translate-x-1/2 -translate-y-1/2"
-                style={{
-                  width: `${Math.min(accuracy / 3, 50)}px`,
-                  height: `${Math.min(accuracy / 3, 50)}px`,
-                  left: '50%',
-                  top: '50%'
-                }}
-              ></div>
               {/* User dot */}
               <div className="relative">
-                <div className="w-5 h-5 bg-[#38BDF8] rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                <div className="w-6 h-6 bg-[#38BDF8] rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#38BDF8] rounded-full animate-ping"></div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#38BDF8] rounded-full animate-ping"></div>
               </div>
               {/* Label */}
-              <div className="absolute top-7 left-1/2 -translate-x-1/2 bg-[#38BDF8] text-white text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap shadow">
+              <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-[#38BDF8] text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap shadow">
                 VI TRI CUA BAN
               </div>
             </div>
           )}
 
-          {/* GPS Warning */}
-          {gpsError && (
-            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-[#F59E0B]/90 text-[#1E293B] px-4 py-2 rounded-lg flex items-center gap-2 z-20">
-              <AlertCircle size={16} />
-              <span className="text-sm font-medium">GPS: {gpsError}</span>
-            </div>
-          )}
-
           {/* Zone Gate */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white text-[#1E293B] px-8 py-2 rounded-full font-bold shadow-lg text-sm z-10 border-t-4 border-[#0284C7]">
-            CONG VAO PHAN KHU
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-white text-[#1E293B] px-6 py-2 rounded-full font-bold shadow-lg text-sm z-10 border-t-4 border-[#0284C7]">
+            CONG VAO
           </div>
 
           {/* Zone Label */}
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg px-4 py-2 shadow-lg">
-            <span className="font-bold text-[#1E293B]">{zone?.name}</span>
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-[#0284C7] text-white px-4 py-1.5 rounded-full font-bold text-sm z-10">
+            {zone?.name || 'Khu vuc'}
+          </div>
+
+          {/* Column Labels */}
+          <div className="absolute left-[20%] top-[5%] -translate-x-1/2 text-white/60 text-xs font-medium">
+            HANG TRAI
+          </div>
+          <div className="absolute right-[20%] top-[5%] translate-x-1/2 text-white/60 text-xs font-medium">
+            HANG PHAI
           </div>
         </div>
       </div>
 
-      {/* Bottom Controls */}
-      <div className="bg-white border-t border-[#64748B]/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isTracking ? 'bg-[#10B981] animate-pulse' : 'bg-[#94A3B8]'}`}></div>
-            <div>
-              <p className="text-sm font-medium text-[#1E293B]">
-                {isTracking ? 'Dang theo doi GPS' : 'GPS da tam dung'}
-              </p>
-              <p className="text-xs text-[#64748B]">
-                {gpsCoords 
-                  ? `Toa do: ${gpsCoords.lat.toFixed(5)}, ${gpsCoords.lng.toFixed(5)}`
-                  : 'Dang xac dinh...'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsTracking(!isTracking)}
-            className={`p-3 rounded-xl transition-colors ${
-              isTracking ? 'bg-[#0284C7] text-white' : 'bg-slate-200 text-[#64748B] hover:bg-slate-300'
-            }`}
-          >
-            <Locate size={20} />
-          </button>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-3 pt-3 border-t border-[#64748B]/20 text-xs">
+      {/* Legend */}
+      <div className="bg-white px-6 py-3 border-t border-[#64748B]/20">
+        <div className="flex items-center justify-center gap-6 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#38BDF8] border-2 border-white shadow"></div>
-            <span className="text-[#64748B]">Vi tri cua ban</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-3 rounded bg-[#10B981]"></div>
-            <span className="text-[#64748B]">Diem den</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-3 rounded bg-[#EF4444]/30 border border-[#EF4444]"></div>
-            <span className="text-[#64748B]">Da co xe</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-3 rounded bg-[#10B981]/30 border border-[#10B981]"></div>
+            <div className="w-4 h-4 rounded bg-[#10B981]/20 border border-[#10B981]"></div>
             <span className="text-[#64748B]">Trong</span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#EF4444]/20 border border-[#EF4444]"></div>
+            <span className="text-[#64748B]">Da do</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#10B981] border border-[#10B981]"></div>
+            <span className="text-[#64748B]">Da chon</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-[#38BDF8] border-2 border-white"></div>
+            <span className="text-[#64748B]">Vi tri ban</span>
+          </div>
         </div>
       </div>
-
-      {/* CSS for dash animation */}
-      <style jsx>{`
-        @keyframes dash {
-          to {
-            stroke-dashoffset: -24;
-          }
-        }
-        .animate-dash {
-          animation: dash 1s linear infinite;
-        }
-      `}</style>
     </div>
   )
 }
