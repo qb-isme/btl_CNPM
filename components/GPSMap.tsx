@@ -272,64 +272,71 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             })}
           </div>
 
-          {/* Navigation Route - Duong cham cham bang div/css thay vi SVG */}
+          {/* Navigation Route - Duong cham cham SVG */}
           {isNavigating && selectedSlotIndex >= 0 && (
-            <>
-              {/* Duong doc tu vi tri hien tai len diem re */}
-              <div 
-                className="absolute left-1/2 -translate-x-1/2 w-1 border-l-4 border-dashed border-[#38BDF8] z-20"
-                style={{
-                  top: '25%',
-                  height: `${userPosition.y - 25}%`,
-                  animation: 'dash-move 1s linear infinite'
-                }}
-              />
-              
-              {/* Duong ngang tu giua re sang trai/phai */}
-              <div 
-                className="absolute top-[25%] h-1 border-t-4 border-dashed border-[#38BDF8] z-20"
-                style={{
-                  left: isLeftColumn ? '20%' : '50%',
-                  width: isLeftColumn ? '30%' : '30%',
-                }}
-              />
-              
-              {/* Duong doc tu diem re xuong vi tri o do xe */}
-              <div 
-                className="absolute w-1 border-l-4 border-dashed border-[#38BDF8] z-20"
-                style={{
-                  left: isLeftColumn ? '20%' : '80%',
-                  top: `${12 + (rowIndex * 13)}%`,
-                  height: `${25 - (12 + (rowIndex * 13))}%`,
-                }}
-              />
-              
-              {/* Diem re 1 - o giua duong */}
-              <div 
-                className="absolute w-4 h-4 bg-[#38BDF8] rounded-full border-2 border-white shadow-lg z-30 -translate-x-1/2 -translate-y-1/2"
-                style={{ left: '50%', top: '25%' }}
-              />
-              
-              {/* Diem re 2 - truoc khi vao o do xe */}
-              <div 
-                className="absolute w-4 h-4 bg-[#F59E0B] rounded-full border-2 border-white shadow-lg z-30 -translate-x-1/2 -translate-y-1/2"
-                style={{ left: isLeftColumn ? '20%' : '80%', top: '25%' }}
-              />
-              
-              {/* Diem dich - o do xe */}
-              <div 
-                className="absolute w-5 h-5 bg-[#10B981] rounded-full border-2 border-white shadow-lg z-30 -translate-x-1/2 -translate-y-1/2 animate-pulse"
-                style={{ left: isLeftColumn ? '20%' : '80%', top: `${12 + (rowIndex * 13)}%` }}
-              />
-
-              {/* CSS animation */}
-              <style jsx>{`
-                @keyframes dash-move {
-                  0% { background-position: 0 0; }
-                  100% { background-position: 0 20px; }
-                }
-              `}</style>
-            </>
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+              {/* Diem giua duong - de tinh toan */}
+              {(() => {
+                const midY = 55 // Diem re o 55% tu tren xuong
+                const slotTopY = 10 + (rowIndex * 12.5) // Vi tri o do xe (%)
+                const turnX = isLeftColumn ? 20 : 80 // Re vao hang trai hoac phai
+                
+                return (
+                  <>
+                    {/* Duong 1: Tu cong vao (userPosition) di len giua */}
+                    <line 
+                      x1="50%" y1={`${userPosition.y}%`}
+                      x2="50%" y2={`${midY}%`}
+                      stroke="#38BDF8" 
+                      strokeWidth="4" 
+                      strokeDasharray="12,8"
+                      strokeLinecap="round"
+                    />
+                    
+                    {/* Duong 2: Tu giua re ngang sang trai/phai */}
+                    <line 
+                      x1="50%" y1={`${midY}%`}
+                      x2={`${turnX}%`} y2={`${midY}%`}
+                      stroke="#38BDF8" 
+                      strokeWidth="4" 
+                      strokeDasharray="12,8"
+                      strokeLinecap="round"
+                    />
+                    
+                    {/* Duong 3: Tu diem re di len o do xe */}
+                    <line 
+                      x1={`${turnX}%`} y1={`${midY}%`}
+                      x2={`${turnX}%`} y2={`${slotTopY + 6}%`}
+                      stroke="#38BDF8" 
+                      strokeWidth="4" 
+                      strokeDasharray="12,8"
+                      strokeLinecap="round"
+                    />
+                    
+                    {/* Diem bat dau - Vi tri hien tai */}
+                    <circle cx="50%" cy={`${userPosition.y}%`} r="8" fill="#38BDF8" stroke="white" strokeWidth="3" />
+                    
+                    {/* Diem re 1 - O giua duong */}
+                    <circle cx="50%" cy={`${midY}%`} r="6" fill="#F59E0B" stroke="white" strokeWidth="2" />
+                    
+                    {/* Diem re 2 - Truoc khi vao hang */}
+                    <circle cx={`${turnX}%`} cy={`${midY}%`} r="6" fill="#F59E0B" stroke="white" strokeWidth="2" />
+                    
+                    {/* Diem dich - O do xe */}
+                    <circle cx={`${turnX}%`} cy={`${slotTopY + 6}%`} r="10" fill="#10B981" stroke="white" strokeWidth="3">
+                      <animate attributeName="r" values="10;14;10" dur="1s" repeatCount="indefinite" />
+                    </circle>
+                    
+                    {/* Mui ten chi huong */}
+                    <polygon 
+                      points={`${turnX - 2},${slotTopY + 10} ${turnX + 2},${slotTopY + 10} ${turnX},${slotTopY + 6}`}
+                      fill="#10B981"
+                      transform={`translate(${turnX * 0.01}, 0)`}
+                    />
+                  </>
+                )
+              })()}
+            </svg>
           )}
 
           {/* User Position Marker */}
