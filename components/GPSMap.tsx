@@ -272,69 +272,77 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             })}
           </div>
 
-          {/* Navigation Route - Duong cham cham SVG */}
-          {isNavigating && selectedSlotIndex >= 0 && (
-            <svg 
-              className="absolute inset-0 w-full h-full pointer-events-none z-20" 
-              viewBox="0 0 100 100" 
-              preserveAspectRatio="none"
-            >
-              {(() => {
-                const startY = 92 // Vi tri cong vao
-                const midY = 55 // Diem re o 55% tu tren xuong
-                const slotTopY = 12 + (rowIndex * 12.5) // Vi tri o do xe (%)
-                const turnX = isLeftColumn ? 20 : 80 // Re vao hang trai hoac phai
+          {/* Navigation Route - Duong cham cham */}
+          {isNavigating && selectedSlotIndex >= 0 && (() => {
+            const startY = 88 // Vi tri cong vao (%)
+            const midY = 50 // Diem re giua (%)
+            const slotTopY = 15 + (rowIndex * 12) // Vi tri o do xe (%)
+            const turnXPercent = isLeftColumn ? '20%' : '80%'
+            
+            return (
+              <>
+                {/* Duong 1: Tu cong vao di len giua - DUONG DOC */}
+                <div 
+                  className="absolute left-1/2 -translate-x-1/2 z-20"
+                  style={{
+                    top: `${midY}%`,
+                    height: `${startY - midY}%`,
+                    width: '4px',
+                    background: 'repeating-linear-gradient(to bottom, #38BDF8 0px, #38BDF8 8px, transparent 8px, transparent 14px)'
+                  }}
+                />
                 
-                return (
-                  <>
-                    {/* Duong 1: Tu cong vao di len giua */}
-                    <line 
-                      x1={50} y1={startY}
-                      x2={50} y2={midY}
-                      stroke="#38BDF8" 
-                      strokeWidth="1.5" 
-                      strokeDasharray="3,2"
-                      strokeLinecap="round"
-                    />
-                    
-                    {/* Duong 2: Tu giua re ngang sang trai/phai */}
-                    <line 
-                      x1={50} y1={midY}
-                      x2={turnX} y2={midY}
-                      stroke="#38BDF8" 
-                      strokeWidth="1.5" 
-                      strokeDasharray="3,2"
-                      strokeLinecap="round"
-                    />
-                    
-                    {/* Duong 3: Tu diem re di len o do xe */}
-                    <line 
-                      x1={turnX} y1={midY}
-                      x2={turnX} y2={slotTopY + 5}
-                      stroke="#38BDF8" 
-                      strokeWidth="1.5" 
-                      strokeDasharray="3,2"
-                      strokeLinecap="round"
-                    />
-                    
-                    {/* Diem bat dau - Cong vao */}
-                    <circle cx={50} cy={startY} r="2.5" fill="#38BDF8" stroke="white" strokeWidth="0.8" />
-                    
-                    {/* Diem re 1 - O giua duong */}
-                    <circle cx={50} cy={midY} r="2" fill="#F59E0B" stroke="white" strokeWidth="0.6" />
-                    
-                    {/* Diem re 2 - Truoc khi vao hang */}
-                    <circle cx={turnX} cy={midY} r="2" fill="#F59E0B" stroke="white" strokeWidth="0.6" />
-                    
-                    {/* Diem dich - O do xe */}
-                    <circle cx={turnX} cy={slotTopY + 5} r="3" fill="#10B981" stroke="white" strokeWidth="0.8">
-                      <animate attributeName="r" values="3;4;3" dur="1s" repeatCount="indefinite" />
-                    </circle>
-                  </>
-                )
-              })()}
-            </svg>
-          )}
+                {/* Duong 2: Re ngang sang trai/phai - DUONG NGANG */}
+                <div 
+                  className="absolute z-20"
+                  style={{
+                    top: `${midY}%`,
+                    left: isLeftColumn ? turnXPercent : '50%',
+                    width: '30%',
+                    height: '4px',
+                    background: 'repeating-linear-gradient(to right, #38BDF8 0px, #38BDF8 8px, transparent 8px, transparent 14px)'
+                  }}
+                />
+                
+                {/* Duong 3: Tu diem re di len o do xe - DUONG DOC */}
+                <div 
+                  className="absolute z-20"
+                  style={{
+                    top: `${slotTopY + 5}%`,
+                    left: turnXPercent,
+                    transform: 'translateX(-50%)',
+                    height: `${midY - slotTopY - 5}%`,
+                    width: '4px',
+                    background: 'repeating-linear-gradient(to bottom, #38BDF8 0px, #38BDF8 8px, transparent 8px, transparent 14px)'
+                  }}
+                />
+                
+                {/* Diem bat dau - Cong vao */}
+                <div 
+                  className="absolute left-1/2 -translate-x-1/2 w-5 h-5 bg-[#38BDF8] rounded-full border-2 border-white shadow-lg z-25"
+                  style={{ top: `${startY}%`, transform: 'translate(-50%, -50%)' }}
+                />
+                
+                {/* Diem re 1 - O giua duong */}
+                <div 
+                  className="absolute left-1/2 w-4 h-4 bg-[#F59E0B] rounded-full border-2 border-white shadow z-25"
+                  style={{ top: `${midY}%`, transform: 'translate(-50%, -50%)' }}
+                />
+                
+                {/* Diem re 2 - Truoc khi vao hang */}
+                <div 
+                  className="absolute w-4 h-4 bg-[#F59E0B] rounded-full border-2 border-white shadow z-25"
+                  style={{ top: `${midY}%`, left: turnXPercent, transform: 'translate(-50%, -50%)' }}
+                />
+                
+                {/* Diem dich - O do xe */}
+                <div 
+                  className="absolute w-6 h-6 bg-[#10B981] rounded-full border-2 border-white shadow-lg z-25 animate-pulse"
+                  style={{ top: `${slotTopY + 5}%`, left: turnXPercent, transform: 'translate(-50%, -50%)' }}
+                />
+              </>
+            )
+          })()}
 
           {/* User Position Marker */}
           {isNavigating && (
