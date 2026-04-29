@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from 'react'
-import { Navigation, MapPin, Car, Clock, Route, X, ArrowUp, CornerDownLeft, CornerDownRight, CheckCircle2, CircleDot, Play } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Navigation, MapPin, Car, Clock, Route, X, ArrowUp, CornerDownLeft, CornerDownRight, CheckCircle2, CircleDot, Play, LocateFixed } from 'lucide-react'
 
 interface GPSMapProps {
   selectedZoneId: string | null
@@ -32,7 +32,9 @@ const zoneInfo: Record<string, { name: string }> = {
 export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating, onClose }: GPSMapProps) {
   const [isSimulating, setIsSimulating] = useState(false)
   const [currentStepIndex, setCurrentStepIndex] = useState(-1)
-  const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: 50, y: 92 })
+  const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: 50, y: 92 }) // Mac dinh: cong vao
+  const [gpsStatus, setGpsStatus] = useState<'pending' | 'granted' | 'denied'>('pending')
+  const [hasRealGPS, setHasRealGPS] = useState(false)
 
   const zone = selectedZoneId ? zoneInfo[selectedZoneId] : null
   const slots = selectedZoneId ? generateSlots(selectedZoneId) : []
@@ -42,9 +44,34 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   const isLeftColumn = selectedSlotIndex >= 0 && selectedSlotIndex < 6
   const rowIndex = isLeftColumn ? selectedSlotIndex : selectedSlotIndex - 6
 
-  // Vi tri dich den tren so do
+  // Vi tri dich den tren so do (% cua container)
   const targetX = isLeftColumn ? 20 : 80
-  const targetY = selectedSlotIndex >= 0 ? 15 + (rowIndex * 12) : 50
+  const targetY = selectedSlotIndex >= 0 ? 12 + (rowIndex * 13) : 50
+
+  // Xin quyen GPS
+  useEffect(() => {
+    if (isNavigating && gpsStatus === 'pending') {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            setGpsStatus('granted')
+            setHasRealGPS(true)
+            // Mo phong: dat vi tri gan cong vao nhung khong phai chinh xac o cong
+            setUserPosition({ x: 48 + Math.random() * 4, y: 88 + Math.random() * 4 })
+          },
+          () => {
+            setGpsStatus('denied')
+            setHasRealGPS(false)
+            // Mac dinh: vi tri tai cong vao
+            setUserPosition({ x: 50, y: 92 })
+          }
+        )
+      } else {
+        setGpsStatus('denied')
+        setUserPosition({ x: 50, y: 92 })
+      }
+    }
+  }, [isNavigating, gpsStatus])
 
   // Cac buoc chi dan co dinh
   const getNavigationSteps = () => {
@@ -58,13 +85,13 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
         icon: ArrowUp,
         text: 'Di thang vao khu vuc',
         detail: 'Di thang khoang 15m tu cong vao',
-        position: { x: 50, y: 70 }
+        position: { x: 50, y: 60 }
       },
       {
         icon: isLeftColumn ? CornerDownLeft : CornerDownRight,
         text: isLeftColumn ? 'Re trai vao hang do xe' : 'Re phai vao hang do xe',
         detail: isLeftColumn ? 'Hang o do xe ben trai' : 'Hang o do xe ben phai',
-        position: { x: isLeftColumn ? 35 : 65, y: targetY + 20 }
+        position: { x: isLeftColumn ? 35 : 65, y: targetY + 15 }
       },
       {
         icon: CircleDot,
@@ -87,7 +114,8 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   const startSimulation = () => {
     setIsSimulating(true)
     setCurrentStepIndex(-1)
-    setUserPosition({ x: 50, y: 92 })
+    // Reset ve vi tri ban dau (cong vao hoac vi tri GPS)
+    setUserPosition(hasRealGPS ? { x: 48 + Math.random() * 4, y: 88 + Math.random() * 4 } : { x: 50, y: 92 })
 
     navigationSteps.forEach((step, index) => {
       setTimeout(() => {
@@ -103,10 +131,17 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
     })
   }
 
-  // Tao duong di SVG
+  // Tao duong di SVG - duong cham cham tu vi tri hien tai den dich
   const generateRoutePath = () => {
     if (selectedSlotIndex < 0) return ''
-    return `M 50 92 L 50 ${targetY + 20} L ${targetX} ${targetY + 20} L ${targetX} ${targetY}`
+    
+    const startX = userPosition.x
+    const startY = userPosition.y
+    const midY = 60 // Diem giua truoc khi re
+    const turnX = isLeftColumn ? 35 : 65 // Diem re
+    
+    // Duong di: Tu vi tri hien tai -> di thang -> re trai/phai -> den o do xe
+    return `M ${startX} ${startY} L ${startX} ${midY} L ${turnX} ${midY} L ${turnX} ${targetY + 5} L ${targetX} ${targetY + 5} L ${targetX} ${targetY}`
   }
 
   // Tinh khoang cach va thoi gian uoc tinh
@@ -124,7 +159,10 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             <Navigation className="text-[#0284C7]" size={28} />
             <div>
               <h2 className="font-bold text-[#1E293B] text-xl">So do 2D - {zone?.name}</h2>
-              <p className="text-sm text-[#64748B]">Mo phong chi dan duong di</p>
+              <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                <LocateFixed size={14} className={hasRealGPS ? 'text-[#10B981]' : 'text-[#F59E0B]'} />
+                <span>{hasRealGPS ? 'GPS da ket noi' : 'Mo phong tu cong vao'}</span>
+              </div>
             </div>
           </div>
           <button
@@ -167,90 +205,8 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
         )}
       </div>
 
-      {/* Navigation Instructions Panel */}
-      {isNavigating && navigationSteps.length > 0 && (
-        <div className="bg-white border-b border-[#64748B]/20 px-6 py-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Navigation size={18} className="text-[#0284C7]" />
-              <h3 className="font-bold text-[#1E293B]">Chi dan cu the</h3>
-            </div>
-            <button
-              onClick={startSimulation}
-              disabled={isSimulating}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${
-                isSimulating 
-                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
-                  : 'bg-[#0284C7] text-white hover:bg-[#0369A1]'
-              }`}
-            >
-              <Play size={16} />
-              {isSimulating ? 'Dang mo phong...' : 'Bat dau mo phong'}
-            </button>
-          </div>
-          <div className="space-y-2">
-            {navigationSteps.map((step, index) => {
-              const StepIcon = step.icon
-              const isCompleted = currentStepIndex > index
-              const isActive = currentStepIndex === index
-              return (
-                <div 
-                  key={index}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
-                    isCompleted 
-                      ? 'bg-[#10B981]/10 border border-[#10B981]/30' 
-                      : isActive
-                        ? 'bg-[#0284C7]/10 border-2 border-[#0284C7] shadow-sm'
-                        : 'bg-slate-50 border border-slate-200'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    isCompleted 
-                      ? 'bg-[#10B981] text-white' 
-                      : isActive
-                        ? 'bg-[#0284C7] text-white animate-pulse'
-                        : 'bg-slate-200 text-[#64748B]'
-                  }`}>
-                    {isCompleted ? (
-                      <CheckCircle2 size={20} />
-                    ) : (
-                      <StepIcon size={20} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-semibold ${
-                      isCompleted 
-                        ? 'text-[#10B981]' 
-                        : isActive 
-                          ? 'text-[#0284C7]' 
-                          : 'text-[#64748B]'
-                    }`}>
-                      {step.text}
-                    </p>
-                    <p className={`text-sm ${
-                      isCompleted || isActive ? 'text-[#64748B]' : 'text-slate-400'
-                    }`}>
-                      {step.detail}
-                    </p>
-                  </div>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                    isCompleted 
-                      ? 'bg-[#10B981] text-white' 
-                      : isActive
-                        ? 'bg-[#0284C7] text-white'
-                        : 'bg-slate-200 text-[#64748B]'
-                  }`}>
-                    {index + 1}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Main 2D Floor Plan */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 min-h-0">
         <div className="w-full h-full bg-[#1E293B] rounded-2xl relative overflow-hidden border-4 border-white shadow-lg">
           {/* Grid background */}
           <div className="absolute inset-0 opacity-10">
@@ -316,7 +272,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             })}
           </div>
 
-          {/* Navigation Route */}
+          {/* Navigation Route - Duong cham cham */}
           {isNavigating && selectedSlotIndex >= 0 && (
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
               <defs>
@@ -324,29 +280,71 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
                   <stop offset="0%" stopColor="#38BDF8" />
                   <stop offset="100%" stopColor="#10B981" />
                 </linearGradient>
+                {/* Animation cho duong cham */}
+                <style>
+                  {`
+                    @keyframes dash {
+                      to {
+                        stroke-dashoffset: -20;
+                      }
+                    }
+                    .animated-dash {
+                      animation: dash 1s linear infinite;
+                    }
+                  `}
+                </style>
               </defs>
+              
+              {/* Duong vien mo */}
+              <path
+                d={generateRoutePath()}
+                fill="none"
+                stroke="#38BDF8"
+                strokeWidth="3"
+                strokeOpacity="0.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+              
+              {/* Duong cham cham chinh */}
               <path
                 d={generateRoutePath()}
                 fill="none"
                 stroke="url(#route-gradient)"
-                strokeWidth="1.5"
-                strokeDasharray="4,2"
+                strokeWidth="2"
+                strokeDasharray="6,4"
                 strokeLinecap="round"
+                strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
-                className="animate-pulse"
+                className="animated-dash"
               />
+              
+              {/* Mui ten chi huong tai cac diem re */}
+              <circle cx={userPosition.x} cy="60" r="1.5" fill="#38BDF8" />
+              <circle cx={isLeftColumn ? 35 : 65} cy="60" r="1.5" fill="#38BDF8" />
+              <circle cx={isLeftColumn ? 35 : 65} cy={targetY + 5} r="1.5" fill="#38BDF8" />
+              
               {/* Destination marker */}
               <circle 
                 cx={targetX} 
                 cy={targetY} 
-                r="2" 
+                r="3" 
                 fill="#10B981" 
-                className="animate-pulse"
+              />
+              <circle 
+                cx={targetX} 
+                cy={targetY} 
+                r="5" 
+                fill="none"
+                stroke="#10B981"
+                strokeWidth="1"
+                opacity="0.5"
               />
             </svg>
           )}
 
-          {/* User Position Marker (Simulation) */}
+          {/* User Position Marker */}
           {isNavigating && (
             <div
               className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-in-out"
@@ -354,14 +352,14 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
             >
               {/* User dot */}
               <div className="relative">
-                <div className="w-6 h-6 bg-[#38BDF8] rounded-full border-3 border-white shadow-lg flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+                <div className="w-7 h-7 bg-[#38BDF8] rounded-full border-3 border-white shadow-lg flex items-center justify-center">
+                  <div className="w-3 h-3 bg-white rounded-full"></div>
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#38BDF8] rounded-full animate-ping"></div>
+                <div className="absolute inset-0 w-7 h-7 bg-[#38BDF8] rounded-full animate-ping opacity-30"></div>
               </div>
               {/* Label */}
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 bg-[#38BDF8] text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap shadow">
-                VI TRI CUA BAN
+              <div className="absolute top-9 left-1/2 -translate-x-1/2 bg-[#38BDF8] text-white text-[10px] font-bold px-2 py-1 rounded whitespace-nowrap shadow">
+                BAN O DAY
               </div>
             </div>
           )}
@@ -386,24 +384,111 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
         </div>
       </div>
 
+      {/* Navigation Instructions Panel */}
+      {isNavigating && navigationSteps.length > 0 && (
+        <div className="bg-white border-t border-[#64748B]/20 px-6 py-4 max-h-[35%] overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Route size={18} className="text-[#0284C7]" />
+              <h3 className="font-bold text-[#1E293B]">Huong dan di vao o do xe</h3>
+            </div>
+            <button
+              onClick={startSimulation}
+              disabled={isSimulating}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                isSimulating 
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                  : 'bg-[#0284C7] text-white hover:bg-[#0369A1]'
+              }`}
+            >
+              <Play size={16} />
+              {isSimulating ? 'Dang mo phong...' : 'Xem mo phong'}
+            </button>
+          </div>
+          
+          <div className="space-y-2">
+            {navigationSteps.map((step, index) => {
+              const StepIcon = step.icon
+              const isCompleted = currentStepIndex > index
+              const isActive = currentStepIndex === index
+              return (
+                <div 
+                  key={index}
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                    isCompleted 
+                      ? 'bg-[#10B981]/10 border border-[#10B981]/30' 
+                      : isActive
+                        ? 'bg-[#0284C7]/10 border-2 border-[#0284C7] shadow-sm'
+                        : 'bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    isCompleted 
+                      ? 'bg-[#10B981] text-white' 
+                      : isActive
+                        ? 'bg-[#0284C7] text-white animate-pulse'
+                        : 'bg-slate-200 text-[#64748B]'
+                  }`}>
+                    {isCompleted ? (
+                      <CheckCircle2 size={20} />
+                    ) : (
+                      <StepIcon size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-semibold ${
+                      isCompleted 
+                        ? 'text-[#10B981]' 
+                        : isActive 
+                          ? 'text-[#0284C7]' 
+                          : 'text-[#64748B]'
+                    }`}>
+                      {step.text}
+                    </p>
+                    <p className={`text-sm ${
+                      isCompleted || isActive ? 'text-[#64748B]' : 'text-slate-400'
+                    }`}>
+                      {step.detail}
+                    </p>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    isCompleted 
+                      ? 'bg-[#10B981] text-white' 
+                      : isActive
+                        ? 'bg-[#0284C7] text-white'
+                        : 'bg-slate-200 text-[#64748B]'
+                  }`}>
+                    {index + 1}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Legend */}
       <div className="bg-white px-6 py-3 border-t border-[#64748B]/20">
-        <div className="flex items-center justify-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#10B981]/20 border border-[#10B981]"></div>
+        <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-[#10B981]/20 border border-[#10B981]"></div>
             <span className="text-[#64748B]">Trong</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#EF4444]/20 border border-[#EF4444]"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-[#EF4444]/20 border border-[#EF4444]"></div>
             <span className="text-[#64748B]">Da do</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#10B981] border border-[#10B981]"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-[#10B981] border border-[#10B981]"></div>
             <span className="text-[#64748B]">Da chon</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#38BDF8] border-2 border-white"></div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full bg-[#38BDF8] border-2 border-white"></div>
             <span className="text-[#64748B]">Vi tri ban</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-0.5 border-t-2 border-dashed border-[#38BDF8]"></div>
+            <span className="text-[#64748B]">Duong di</span>
           </div>
         </div>
       </div>
