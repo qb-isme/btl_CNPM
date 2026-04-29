@@ -31,7 +31,7 @@ const zoneInfo: Record<string, { name: string }> = {
 
 export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating, onClose }: GPSMapProps) {
   const [isSimulating, setIsSimulating] = useState(false)
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [currentStepIndex, setCurrentStepIndex] = useState(-1)
   const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: 50, y: 92 })
 
   const zone = selectedZoneId ? zoneInfo[selectedZoneId] : null
@@ -39,12 +39,12 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   
   // Tim slot da chon
   const selectedSlotIndex = slots.findIndex(s => s.name === selectedSlotName)
-  const isLeftColumn = selectedSlotIndex < 6
+  const isLeftColumn = selectedSlotIndex >= 0 && selectedSlotIndex < 6
   const rowIndex = isLeftColumn ? selectedSlotIndex : selectedSlotIndex - 6
 
   // Vi tri dich den tren so do
   const targetX = isLeftColumn ? 20 : 80
-  const targetY = 15 + (rowIndex * 12)
+  const targetY = selectedSlotIndex >= 0 ? 15 + (rowIndex * 12) : 50
 
   // Cac buoc chi dan co dinh
   const getNavigationSteps = () => {
@@ -86,7 +86,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   // Mo phong di chuyen
   const startSimulation = () => {
     setIsSimulating(true)
-    setCurrentStepIndex(0)
+    setCurrentStepIndex(-1)
     setUserPosition({ x: 50, y: 92 })
 
     navigationSteps.forEach((step, index) => {
@@ -111,7 +111,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
 
   // Tinh khoang cach va thoi gian uoc tinh
   const routeInfo = {
-    distance: `${15 + Math.abs(50 - targetX) * 0.3 + (92 - targetY) * 0.3}`.slice(0, 4) + ' m',
+    distance: `${Math.round(15 + Math.abs(50 - targetX) * 0.3 + (92 - targetY) * 0.3)} m`,
     duration: '1-2 phut'
   }
 
@@ -191,8 +191,8 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
           <div className="space-y-2">
             {navigationSteps.map((step, index) => {
               const StepIcon = step.icon
-              const isCompleted = isSimulating && currentStepIndex > index
-              const isActive = isSimulating && currentStepIndex === index
+              const isCompleted = currentStepIndex > index
+              const isActive = currentStepIndex === index
               return (
                 <div 
                   key={index}
