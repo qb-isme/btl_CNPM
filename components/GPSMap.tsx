@@ -1,77 +1,7 @@
 "use client"
 
-import { useEffect, useState, useCallback } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, Circle } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { Navigation, MapPin, Car, Clock, Route, Layers, X, Locate } from 'lucide-react'
-
-// Custom icons
-const createIcon = (color: string, size: number = 25) => new L.DivIcon({
-  html: `<div style="
-    background-color: ${color};
-    width: ${size}px;
-    height: ${size}px;
-    border-radius: 50%;
-    border: 3px solid white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  "></div>`,
-  className: 'custom-marker',
-  iconSize: [size, size],
-  iconAnchor: [size/2, size/2],
-})
-
-const userIcon = createIcon('#3B82F6', 20)
-const destinationIcon = createIcon('#10B981', 28)
-const parkingIcon = createIcon('#EF4444', 22)
-
-// Vị trí bãi xe thực tế - Đại học Bách Khoa TP.HCM (ví dụ)
-const PARKING_CENTER: [number, number] = [10.8800, 106.8056]
-
-const zoneLocations: Record<string, { position: [number, number], name: string }> = {
-  'A': { position: [10.8805, 106.8050], name: 'Khu A - Cổng chính' },
-  'B': { position: [10.8810, 106.8060], name: 'Khu B - Thư viện' },
-  'C': { position: [10.8795, 106.8065], name: 'Khu C - Căn tin' },
-  'D': { position: [10.8815, 106.8045], name: 'Khu D - Hội trường' },
-  'E': { position: [10.8790, 106.8055], name: 'Khu E - Ký túc xá' },
-  'F': { position: [10.8808, 106.8070], name: 'Khu F - Sân vận động' },
-}
-
-// Component cập nhật map view
-function MapController({ center, zoom, shouldFly }: { center: [number, number], zoom: number, shouldFly: boolean }) {
-  const map = useMap()
-  useEffect(() => {
-    if (shouldFly) {
-      map.flyTo(center, zoom, { duration: 1 })
-    }
-  }, [map, center, zoom, shouldFly])
-  return null
-}
-
-// Component theo dõi GPS real-time
-function GPSTracker({ onUpdate, isActive }: { onUpdate: (pos: [number, number], accuracy: number) => void, isActive: boolean }) {
-  const map = useMap()
-  
-  useEffect(() => {
-    if (!isActive || !navigator.geolocation) return
-    
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const newPos: [number, number] = [pos.coords.latitude, pos.coords.longitude]
-        onUpdate(newPos, pos.coords.accuracy)
-      },
-      (err) => console.log('[v0] GPS Error:', err.message),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    )
-    
-    return () => navigator.geolocation.clearWatch(watchId)
-  }, [map, onUpdate, isActive])
-  
-  return null
-}
+import { useState, useEffect } from 'react'
+import { Navigation, MapPin, Car, Clock, Route, X, ArrowUp, CornerDownLeft, CornerDownRight, CheckCircle2, CircleDot, Play, LocateFixed } from 'lucide-react'
 
 interface GPSMapProps {
   selectedZoneId: string | null
@@ -80,342 +10,375 @@ interface GPSMapProps {
   onClose: () => void
 }
 
+// Giả lập các slot trong khu vực
+const generateSlots = (zoneId: string) => {
+  return Array.from({ length: 12 }).map((_, i) => ({
+    id: `${zoneId}-${i + 1}`,
+    name: `Vị trí ${i + 1}`,
+    isOccupied: i % 3 === 0 
+  }));
+};
+
+// Thông tin các khu vực
+const zoneInfo: Record<string, { name: string }> = {
+  'A': { name: 'Khu A (Gần cổng)' },
+  'B': { name: 'Khu B (Trung tâm)' },
+  'C': { name: 'Khu C (Căn tin)' },
+  'D': { name: 'Khu D (Khuất)' },
+  'E': { name: 'Khu E (Cán bộ GV)' },
+  'F': { name: 'Khu F (Mở rộng)' },
+};
+
 export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating, onClose }: GPSMapProps) {
-  const [userPosition, setUserPosition] = useState<[number, number] | null>(null)
-  const [accuracy, setAccuracy] = useState<number>(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [mapType, setMapType] = useState<'street' | 'satellite'>('street')
-  const [routeCoords, setRouteCoords] = useState<[number, number][]>([])
-  const [routeInfo, setRouteInfo] = useState<{ distance: string, duration: string } | null>(null)
-  const [isTracking, setIsTracking] = useState(true)
-  const [shouldFlyToUser, setShouldFlyToUser] = useState(false)
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [currentStepIndex, setCurrentStepIndex] = useState(-1)
   
-  const destination = selectedZoneId ? zoneLocations[selectedZoneId] : null
+  // Tọa độ cổng vào cố định ở chính giữa
+  const ENTRANCE_X = 50
+  const ENTRANCE_Y = 95
   
-  // Lấy vị trí ban đầu
+  const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: ENTRANCE_X, y: ENTRANCE_Y }) 
+  const [gpsStatus, setGpsStatus] = useState<'pending' | 'granted' | 'denied'>('pending')
+  const [hasRealGPS, setHasRealGPS] = useState(false)
+
+  const zone = selectedZoneId ? zoneInfo[selectedZoneId] : null
+  const slots = selectedZoneId ? generateSlots(selectedZoneId) : []
+  
+  // Tìm slot đã chọn
+  const selectedSlotIndex = slots.findIndex(s => s.name === selectedSlotName)
+  const isLeftColumn = selectedSlotIndex >= 0 && selectedSlotIndex < 6
+  const rowIndex = isLeftColumn ? selectedSlotIndex : selectedSlotIndex - 6
+
+  // Vị trí đích đến trên sơ đồ (% của container) cho layout đối xứng mới
+  const targetX = isLeftColumn ? 22.5 : 77.5 // Cột trái 22.5%, Cột phải 77.5%
+  const targetY = selectedSlotIndex >= 0 ? 21.25 + (rowIndex * 12.5) : 50 // Căn dọc theo các ô đỗ
+
+  // Xin quyền GPS
   useEffect(() => {
-    if (!navigator.geolocation) {
-      // Fallback position gần bãi xe
-      setUserPosition([10.8785, 106.8040])
-      setIsLoading(false)
-      return
-    }
-    
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserPosition([pos.coords.latitude, pos.coords.longitude])
-        setAccuracy(pos.coords.accuracy)
-        setIsLoading(false)
-      },
-      () => {
-        // Fallback nếu không có GPS
-        setUserPosition([10.8785, 106.8040])
-        setIsLoading(false)
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }, [])
-  
-  // Fetch route từ OSRM API (miễn phí)
-  useEffect(() => {
-    if (!userPosition || !destination || !isNavigating) {
-      setRouteCoords([])
-      setRouteInfo(null)
-      return
-    }
-    
-    const fetchRoute = async () => {
-      try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${userPosition[1]},${userPosition[0]};${destination.position[1]},${destination.position[0]}?overview=full&geometries=geojson`
-        
-        const res = await fetch(url)
-        const data = await res.json()
-        
-        if (data.routes && data.routes.length > 0) {
-          const route = data.routes[0]
-          const coords: [number, number][] = route.geometry.coordinates.map(
-            (c: [number, number]) => [c[1], c[0]] as [number, number]
-          )
-          setRouteCoords(coords)
-          
-          // Tính khoảng cách và thời gian
-          const distanceKm = (route.distance / 1000).toFixed(2)
-          const durationMin = Math.ceil(route.duration / 60)
-          setRouteInfo({
-            distance: `${distanceKm} km`,
-            duration: `${durationMin} phút`
-          })
-        }
-      } catch (error) {
-        console.log('[v0] Route fetch error:', error)
-        // Fallback - vẽ đường thẳng
-        setRouteCoords([userPosition, destination.position])
-        
-        // Tính khoảng cách đường chim bay
-        const R = 6371
-        const dLat = (destination.position[0] - userPosition[0]) * Math.PI / 180
-        const dLon = (destination.position[1] - userPosition[1]) * Math.PI / 180
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(userPosition[0] * Math.PI / 180) * Math.cos(destination.position[0] * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2)
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-        const distance = R * c
-        
-        setRouteInfo({
-          distance: `${distance.toFixed(2)} km`,
-          duration: `${Math.ceil(distance / 0.5)} phút` // Giả sử đi bộ 0.5km/phút
-        })
+    if (isNavigating && gpsStatus === 'pending') {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          () => {
+            setGpsStatus('granted')
+            setHasRealGPS(true)
+            setUserPosition({ x: ENTRANCE_X - 1 + Math.random() * 2, y: ENTRANCE_Y - 2 + Math.random() * 2 })
+          },
+          () => {
+            setGpsStatus('denied')
+            setHasRealGPS(false)
+            setUserPosition({ x: ENTRANCE_X, y: ENTRANCE_Y })
+          }
+        )
+      } else {
+        setGpsStatus('denied')
+        setUserPosition({ x: ENTRANCE_X, y: ENTRANCE_Y })
       }
     }
+  }, [isNavigating, gpsStatus])
+
+  // Các bước chỉ dẫn cố định
+  const getNavigationSteps = () => {
+    if (selectedSlotIndex < 0) return []
     
-    fetchRoute()
-  }, [userPosition, destination, isNavigating])
-  
-  const handleLocationUpdate = useCallback((pos: [number, number], acc: number) => {
-    setUserPosition(pos)
-    setAccuracy(acc)
-  }, [])
-  
-  const handleCenterOnUser = () => {
-    setShouldFlyToUser(true)
-    setTimeout(() => setShouldFlyToUser(false), 1000)
+    const slotNumber = selectedSlotIndex + 1
+    const rowNumber = slotNumber <= 6 ? slotNumber : slotNumber - 6
+    
+    return [
+      {
+        icon: ArrowUp,
+        text: 'Đi thẳng vào bãi đỗ',
+        detail: 'Từ cổng vào đi thẳng lên',
+        position: { x: ENTRANCE_X, y: (ENTRANCE_Y + targetY) / 2 }
+      },
+      {
+        icon: isLeftColumn ? CornerDownLeft : CornerDownRight,
+        text: `Rẽ ${isLeftColumn ? 'trái' : 'phải'} vào ô đỗ`,
+        detail: `Hàng đỗ xe thứ ${rowNumber}`,
+        position: { x: ENTRANCE_X, y: targetY }
+      },
+      {
+        icon: CheckCircle2,
+        text: 'Đỗ xe tại vị trí',
+        detail: `${selectedSlotName} - Ô màu xanh lá`,
+        position: { x: targetX, y: targetY }
+      }
+    ]
   }
-  
-  const mapCenter = userPosition || PARKING_CENTER
-  
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center bg-slate-900">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-lg">Đang xác định vị trí GPS...</p>
-          <p className="text-sm text-slate-400 mt-2">Vui lòng cho phép truy cập vị trí</p>
-        </div>
-      </div>
-    )
+
+  const navigationSteps = getNavigationSteps()
+
+  // Mô phỏng di chuyển
+  const startSimulation = () => {
+    setIsSimulating(true)
+    setCurrentStepIndex(-1)
+    setUserPosition(hasRealGPS ? { x: ENTRANCE_X - 1 + Math.random() * 2, y: ENTRANCE_Y - 2 } : { x: ENTRANCE_X, y: ENTRANCE_Y })
+
+    navigationSteps.forEach((step, index) => {
+      setTimeout(() => {
+        setCurrentStepIndex(index)
+        setUserPosition(step.position)
+        
+        if (index === navigationSteps.length - 1) {
+          setTimeout(() => {
+            setIsSimulating(false)
+          }, 1500)
+        }
+      }, (index + 1) * 2000)
+    })
+  }
+
+  const routeInfo = {
+    distance: `${Math.round(15 + Math.abs(ENTRANCE_X - targetX) * 0.4 + (ENTRANCE_Y - targetY) * 0.4)} m`,
+    duration: '1-2 phút'
   }
 
   return (
-    <div className="relative w-full h-full bg-slate-900">
-      {/* Header Bar */}
-      <div className="absolute top-0 left-0 right-0 z-[1000] bg-white/95 backdrop-blur-sm shadow-lg">
-        <div className="flex items-center justify-between px-4 py-3">
+    <div className="w-full h-full bg-[#F8FAFC] flex flex-col">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-[#64748B]/20">
+        <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <Navigation className="text-blue-600" size={24} />
+            <Navigation className="text-[#0284C7]" size={28} />
             <div>
-              <h2 className="font-bold text-slate-800">Dẫn đường GPS</h2>
-              <p className="text-xs text-slate-500">Cập nhật thời gian thực</p>
+              <h2 className="font-bold text-[#1E293B] text-xl">Sơ đồ 2D - {zone?.name}</h2>
+              <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                <LocateFixed size={14} className={hasRealGPS ? 'text-[#10B981]' : 'text-[#F59E0B]'} />
+                <span>{hasRealGPS ? 'GPS đã kết nối' : 'Mô phỏng từ cổng vào'}</span>
+              </div>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-          >
-            <X size={24} className="text-slate-600" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <X size={28} className="text-[#64748B]" />
           </button>
         </div>
-        
+
         {/* Destination info */}
-        {destination && isNavigating && (
-          <div className="px-4 pb-3 border-t border-slate-100">
-            <div className="flex items-center gap-4 mt-3">
+        {isNavigating && selectedSlotName && (
+          <div className="px-6 pb-4 border-t border-slate-100">
+            <div className="flex items-center gap-6 mt-3">
               <div className="flex-1">
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <MapPin size={16} className="text-green-500" />
+                <div className="flex items-center gap-2 text-sm text-[#64748B]">
+                  <MapPin size={16} className="text-[#10B981]" />
                   <span>Điểm đến:</span>
                 </div>
-                <p className="font-bold text-slate-800">{destination.name}</p>
-                {selectedSlotName && (
-                  <p className="text-sm text-blue-600 font-medium">{selectedSlotName}</p>
-                )}
+                <p className="font-bold text-[#1E293B] text-lg">{selectedSlotName}</p>
               </div>
-              {routeInfo && (
-                <div className="flex gap-4">
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-slate-500">
-                      <Route size={14} />
-                      <span className="text-xs">Khoảng cách</span>
-                    </div>
-                    <p className="font-bold text-blue-600">{routeInfo.distance}</p>
+              <div className="flex gap-6">
+                <div className="text-center">
+                  <div className="flex items-center gap-1 text-[#64748B]">
+                    <Route size={14} />
+                    <span className="text-xs">Khoảng cách</span>
                   </div>
-                  <div className="text-center">
-                    <div className="flex items-center gap-1 text-slate-500">
-                      <Clock size={14} />
-                      <span className="text-xs">Thời gian</span>
-                    </div>
-                    <p className="font-bold text-green-600">{routeInfo.duration}</p>
-                  </div>
+                  <p className="font-bold text-[#0284C7] text-lg">{routeInfo.distance}</p>
                 </div>
-              )}
+                <div className="text-center">
+                  <div className="flex items-center gap-1 text-[#64748B]">
+                    <Clock size={14} />
+                    <span className="text-xs">Thời gian</span>
+                  </div>
+                  <p className="font-bold text-[#10B981] text-lg">{routeInfo.duration}</p>
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Map Controls */}
-      <div className="absolute top-32 right-4 z-[1000] flex flex-col gap-2">
-        {/* Layer toggle */}
-        <button
-          onClick={() => setMapType(mapType === 'street' ? 'satellite' : 'street')}
-          className="bg-white p-3 rounded-xl shadow-lg hover:bg-slate-50 transition-colors"
-          title="Đổi kiểu bản đồ"
-        >
-          <Layers size={20} className="text-slate-600" />
-        </button>
-        
-        {/* Center on user */}
-        <button
-          onClick={handleCenterOnUser}
-          className="bg-white p-3 rounded-xl shadow-lg hover:bg-slate-50 transition-colors"
-          title="Về vị trí của tôi"
-        >
-          <Locate size={20} className="text-blue-600" />
-        </button>
-        
-        {/* Toggle tracking */}
-        <button
-          onClick={() => setIsTracking(!isTracking)}
-          className={`p-3 rounded-xl shadow-lg transition-colors ${
-            isTracking ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
-          }`}
-          title={isTracking ? 'Dừng theo dõi' : 'Bật theo dõi'}
-        >
-          <Navigation size={20} />
-        </button>
-      </div>
+      {/* Main 2D Floor Plan - CENTERED LAYOUT */}
+      <div className="flex-1 p-4 min-h-0">
+        <div className="w-full h-full bg-[#A3D9A5] rounded-xl relative overflow-hidden border border-slate-300 shadow-md">
+          
+          {/* Title Overlay */}
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 text-center w-full">
+            <h3 className="font-black text-slate-800 tracking-wider text-sm md:text-base drop-shadow-sm">
+              SƠ ĐỒ BÃI ĐỖ XE - KHU {selectedZoneId}
+            </h3>
+          </div>
 
-      {/* Bottom Info Panel */}
-      <div className="absolute bottom-4 left-4 right-4 z-[1000]">
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-3 h-3 rounded-full ${isTracking ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
-              <div>
-                <p className="text-sm font-medium text-slate-800">
-                  {isTracking ? 'Đang theo dõi GPS' : 'GPS đã tạm dừng'}
-                </p>
-                <p className="text-xs text-slate-500">
-                  Độ chính xác: {accuracy > 0 ? `${Math.round(accuracy)}m` : 'Đang xác định...'}
-                </p>
+          {/* --- KHU VỰC ĐƯỜNG ĐI TRUNG TÂM (MÀU XÁM) --- */}
+          <div className="absolute top-[8%] left-[35%] w-[30%] h-[92%] bg-[#8E9399] rounded-t-xl"></div>
+          
+          {/* Vạch kẻ đường giữa */}
+          <div className="absolute top-[10%] left-[50%] -translate-x-1/2 w-[2px] h-[85%] border-l-2 border-dashed border-[#FCD34D]/70"></div>
+
+          {/* --- CÁC Ô ĐỖ XE --- */}
+          {/* Cột Trái (0-5) */}
+          <div className="absolute top-[15%] left-[10%] w-[25%] h-[75%] flex flex-col gap-2">
+            {slots.slice(0, 6).map((slot, i) => {
+              const isSelected = slot.name === selectedSlotName
+              return (
+                <div key={slot.id} className={`flex-1 w-full border-[1.5px] flex items-center justify-center transition-all relative
+                  ${slot.isOccupied 
+                    ? 'bg-slate-200 border-slate-400 text-slate-500' 
+                    : isSelected
+                      ? 'bg-[#10B981] border-[#10B981] text-white ring-2 ring-[#10B981]/40 shadow-lg z-10'
+                      : 'bg-white border-slate-600 text-slate-800 hover:bg-slate-50'}
+                `}>
+                  {slot.isOccupied ? <Car size={20} /> : <span className="font-bold text-[10px] md:text-xs whitespace-nowrap">{selectedZoneId}-{String(i+1).padStart(2, '0')}</span>}
+                  {isSelected && <div className="absolute inset-0 animate-ping bg-[#10B981]/30"></div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Cột Phải (6-11) */}
+          <div className="absolute top-[15%] right-[10%] w-[25%] h-[75%] flex flex-col gap-2">
+            {slots.slice(6, 12).map((slot, i) => {
+              const isSelected = slot.name === selectedSlotName
+              return (
+                <div key={slot.id} className={`flex-1 w-full border-[1.5px] flex items-center justify-center transition-all relative
+                  ${slot.isOccupied 
+                    ? 'bg-slate-200 border-slate-400 text-slate-500' 
+                    : isSelected
+                      ? 'bg-[#10B981] border-[#10B981] text-white ring-2 ring-[#10B981]/40 shadow-lg z-10'
+                      : 'bg-white border-slate-600 text-slate-800 hover:bg-slate-50'}
+                `}>
+                  {slot.isOccupied ? <Car size={20} /> : <span className="font-bold text-[10px] md:text-xs whitespace-nowrap">{selectedZoneId}-{String(i+7).padStart(2, '0')}</span>}
+                  {isSelected && <div className="absolute inset-0 animate-ping bg-[#10B981]/30"></div>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Nhãn Hàng */}
+          <div className="absolute top-[11%] left-[22.5%] -translate-x-1/2 text-slate-800 font-bold text-[10px] md:text-xs bg-white/70 px-2 py-0.5 rounded">
+            HÀNG TRÁI
+          </div>
+          <div className="absolute top-[11%] right-[22.5%] translate-x-1/2 text-slate-800 font-bold text-[10px] md:text-xs bg-white/70 px-2 py-0.5 rounded">
+            HÀNG PHẢI
+          </div>
+
+          {/* --- ĐƯỜNG ĐI CHẤM XANH BẰNG SVG --- */}
+          {isNavigating && selectedSlotIndex >= 0 && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+              <path
+                d={`M ${ENTRANCE_X}% ${ENTRANCE_Y}% L ${ENTRANCE_X}% ${targetY}% L ${targetX}% ${targetY}%`}
+                fill="none"
+                stroke="#0284C7"
+                strokeWidth="4"
+                strokeDasharray="8, 6"
+                className="drop-shadow-sm"
+              />
+              {/* Chấm tròn ở cổng */}
+              <circle cx={`${ENTRANCE_X}%`} cy={`${ENTRANCE_Y}%`} r="4" fill="#0284C7" />
+              {/* Chấm tròn nhấp nháy ở đích */}
+              <circle cx={`${targetX}%`} cy={`${targetY}%`} r="6" fill="#10B981" stroke="white" strokeWidth="2" className="animate-pulse" />
+            </svg>
+          )}
+
+          {/* User Position Marker */}
+          {isNavigating && (
+            <div
+              className="absolute z-30 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ease-linear"
+              style={{ left: `${userPosition.x}%`, top: `${userPosition.y}%` }}
+            >
+              <div className="relative">
+                <div className="w-6 h-6 bg-[#0284C7] rounded-full border-2 border-white shadow-md flex items-center justify-center">
+                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                </div>
+                <div className="absolute inset-0 w-6 h-6 bg-[#0284C7] rounded-full animate-ping opacity-40"></div>
+              </div>
+              <div className="absolute top-7 left-1/2 -translate-x-1/2 bg-white text-[#0284C7] text-[9px] font-bold px-1.5 py-0.5 rounded border border-[#0284C7] whitespace-nowrap shadow">
+                BẠN
               </div>
             </div>
-            
-            {/* Legend */}
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-blue-500 border-2 border-white shadow"></div>
-                <span className="text-slate-600">Bạn</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow"></div>
-                <span className="text-slate-600">Đích</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow"></div>
-                <span className="text-slate-600">Bãi xe</span>
-              </div>
-            </div>
+          )}
+
+          {/* Nhãn cổng vào */}
+          <div className="absolute bottom-2 left-[50%] -translate-x-1/2 bg-white/95 text-slate-800 px-4 py-1.5 rounded text-[11px] font-bold shadow-md border-b-2 border-[#0284C7] z-10">
+            CỔNG VÀO
           </div>
         </div>
       </div>
 
-      {/* Map Container */}
-      <MapContainer
-        center={mapCenter}
-        zoom={17}
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-      >
-        {/* Map tiles */}
-        {mapType === 'street' ? (
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-        ) : (
-          <TileLayer
-            attribution='&copy; Esri'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-        )}
-        
-        {/* GPS Tracker */}
-        <GPSTracker onUpdate={handleLocationUpdate} isActive={isTracking} />
-        
-        {/* Map controller */}
-        {shouldFlyToUser && userPosition && (
-          <MapController center={userPosition} zoom={18} shouldFly={true} />
-        )}
-        
-        {/* User position with accuracy circle */}
-        {userPosition && (
-          <>
-            <Circle
-              center={userPosition}
-              radius={accuracy}
-              pathOptions={{
-                color: '#3B82F6',
-                fillColor: '#3B82F6',
-                fillOpacity: 0.15,
-                weight: 2
-              }}
-            />
-            <Marker position={userPosition} icon={userIcon}>
-              <Popup>
-                <div className="text-center p-1">
-                  <p className="font-bold text-blue-600">Vị trí của bạn</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {userPosition[0].toFixed(6)}, {userPosition[1].toFixed(6)}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Độ chính xác: ~{Math.round(accuracy)}m
-                  </p>
+      {/* Navigation Instructions Panel */}
+      {isNavigating && navigationSteps.length > 0 && (
+        <div className="bg-white border-t border-[#64748B]/20 px-6 py-4 max-h-[30%] overflow-y-auto">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Route size={18} className="text-[#0284C7]" />
+              <h3 className="font-bold text-[#1E293B]">Hướng dẫn đi vào ô đỗ xe</h3>
+            </div>
+            <button
+              onClick={startSimulation}
+              disabled={isSimulating}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all ${
+                isSimulating 
+                  ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                  : 'bg-[#0284C7] text-white hover:bg-[#0369A1]'
+              }`}
+            >
+              <Play size={16} />
+              {isSimulating ? 'Đang mô phỏng...' : 'Xem mô phỏng'}
+            </button>
+          </div>
+          
+          <div className="space-y-2">
+            {navigationSteps.map((step, index) => {
+              const StepIcon = step.icon
+              const isCompleted = currentStepIndex > index
+              const isActive = currentStepIndex === index
+              return (
+                <div 
+                  key={index}
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all ${
+                    isCompleted 
+                      ? 'bg-[#10B981]/10 border border-[#10B981]/30' 
+                      : isActive
+                        ? 'bg-[#0284C7]/10 border-2 border-[#0284C7] shadow-sm'
+                        : 'bg-slate-50 border border-slate-200'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    isCompleted 
+                      ? 'bg-[#10B981] text-white' 
+                      : isActive
+                        ? 'bg-[#0284C7] text-white animate-pulse'
+                        : 'bg-slate-200 text-[#64748B]'
+                  }`}>
+                    {isCompleted ? <CheckCircle2 size={20} /> : <StepIcon size={20} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-semibold ${isCompleted ? 'text-[#10B981]' : isActive ? 'text-[#0284C7]' : 'text-[#64748B]'}`}>
+                      {step.text}
+                    </p>
+                    <p className={`text-sm ${isCompleted || isActive ? 'text-[#64748B]' : 'text-slate-400'}`}>
+                      {step.detail}
+                    </p>
+                  </div>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                    isCompleted ? 'bg-[#10B981] text-white' : isActive ? 'bg-[#0284C7] text-white' : 'bg-slate-200 text-[#64748B]'
+                  }`}>
+                    {index + 1}
+                  </div>
                 </div>
-              </Popup>
-            </Marker>
-          </>
-        )}
-        
-        {/* Destination marker */}
-        {destination && isNavigating && (
-          <Marker position={destination.position} icon={destinationIcon}>
-            <Popup>
-              <div className="text-center p-1">
-                <p className="font-bold text-green-600">{destination.name}</p>
-                {selectedSlotName && (
-                  <p className="text-sm text-blue-600 mt-1">{selectedSlotName}</p>
-                )}
-              </div>
-            </Popup>
-          </Marker>
-        )}
-        
-        {/* All parking zones */}
-        {Object.entries(zoneLocations).map(([id, zone]) => (
-          <Marker key={id} position={zone.position} icon={parkingIcon}>
-            <Popup>
-              <div className="text-center p-1">
-                <p className="font-bold text-red-600">Khu {id}</p>
-                <p className="text-xs text-slate-500">{zone.name}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-        
-        {/* Route polyline */}
-        {routeCoords.length > 0 && (
-          <Polyline
-            positions={routeCoords}
-            pathOptions={{
-              color: '#3B82F6',
-              weight: 5,
-              opacity: 0.8,
-              lineCap: 'round',
-              lineJoin: 'round'
-            }}
-          />
-        )}
-      </MapContainer>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="bg-white px-6 py-3 border-t border-[#64748B]/20">
+        <div className="flex items-center justify-center gap-4 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-white border border-slate-500"></div>
+            <span className="text-[#64748B]">Trống</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-slate-300 border border-slate-400"></div>
+            <span className="text-[#64748B]">Đã đỗ</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded bg-[#10B981] border border-[#10B981]"></div>
+            <span className="text-[#64748B]">Đang chọn</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-0.5 border-t-2 border-dashed border-[#0284C7]"></div>
+            <span className="text-[#64748B]">Đường đi</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
