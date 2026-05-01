@@ -65,6 +65,26 @@ export default function PaymentPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    const syncFromServer = () => {
+      void fetchData({ showFullPageLoading: false });
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') syncFromServer();
+    };
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) syncFromServer();
+    };
+    window.addEventListener('focus', syncFromServer);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('focus', syncFromServer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, []);
+
   const fetchData = async (opts?: { showFullPageLoading?: boolean }) => {
     const showFullPageLoading = opts?.showFullPageLoading !== false
     try {

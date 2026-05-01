@@ -44,12 +44,29 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/user/balance')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success && d.user) setUser(d.user)
-      })
-      .catch(() => {})
+    const loadBalance = () => {
+      fetch('/api/user/balance', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.user) setUser(d.user)
+        })
+        .catch(() => {})
+    }
+    loadBalance()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadBalance()
+    }
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) loadBalance()
+    }
+    window.addEventListener('focus', loadBalance)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('focus', loadBalance)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onPageShow)
+    }
   }, [])
 
   const formatCurrency = (n: number) => `${n.toLocaleString('vi-VN')}đ`

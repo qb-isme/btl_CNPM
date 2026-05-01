@@ -57,7 +57,7 @@ export default function HistoryPage() {
       try {
         setLoading(true)
         const [userRes, paidRes] = await Promise.all([
-          fetch('/api/user/balance'),
+          fetch('/api/user/balance', { cache: 'no-store' }),
           fetch('/api/transactions?status=paid'),
         ])
         const userData = await userRes.json()
@@ -71,6 +71,31 @@ export default function HistoryPage() {
       }
     }
     fetchData()
+  }, [])
+
+  useEffect(() => {
+    const loadBalance = () => {
+      fetch('/api/user/balance', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.user) setUserAccount(d.user)
+        })
+        .catch(() => {})
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadBalance()
+    }
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) loadBalance()
+    }
+    window.addEventListener('focus', loadBalance)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onPageShow)
+    return () => {
+      window.removeEventListener('focus', loadBalance)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onPageShow)
+    }
   }, [])
 
   const handleUpdateBalance = async () => {
@@ -332,7 +357,7 @@ export default function HistoryPage() {
               <div style={{ fontSize: '100px' }}>🔍</div>
               <h3 style={{ fontSize: '30px', margin: 0, color: '#EF4444' }}>Không có phiên phù hợp</h3>
               <p style={{ fontSize: '30px', color: '#64748B', maxWidth: '800px' }}>
-                Không có giao dịch nào khớp với bộ lọc đã áp dụng. Hãy chỉnh ngày, biển số rồi bấm &quot;Lọc dữ liệu&quot;.
+                Không có phiên thứ tự nào thỏa mãn. Vui lòng thử lại.
               </p>
             </div>
           ) : (
