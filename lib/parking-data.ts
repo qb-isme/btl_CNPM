@@ -193,7 +193,7 @@ export const activeSessions: ActiveSession[] = [
     licensePlate: '30F-99887',
     cardId: null,
     userType: 'guest',
-    ownerName: 'Khách vãng lai',
+    ownerName: '',
     checkInTime: new Date(Date.now() - 1000 * 60 * 45),
     checkInPhoto: 'https://placehold.co/200x140/1E293B/94A3B8?text=Check-in+Photo',
     zone: 'Khu F',
@@ -239,6 +239,44 @@ export const incidentTickets: IncidentTicket[] = [
     notes: 'Xe cấp cứu vào khu nội trú – cần giải trình thêm.',
   },
 ];
+
+// ─── Student / Staff lookup by ID ────────────────────────────────────────────
+export interface PersonRecord {
+  id: string;
+  name: string;
+  type: 'student' | 'staff';
+  faculty?: string;
+  avatarUrl: string;
+}
+
+export const personRecords: PersonRecord[] = [
+  {
+    id: 'B20DCCN001',
+    name: 'Trần Văn Bình',
+    type: 'student',
+    faculty: 'CNTT',
+    avatarUrl: 'https://placehold.co/80x80/0284C7/ffffff?text=TVB',
+  },
+  {
+    id: 'B21DCCN099',
+    name: 'Nguyễn Minh Đức',
+    type: 'student',
+    faculty: 'CNTT',
+    avatarUrl: 'https://placehold.co/80x80/0284C7/ffffff?text=NMD',
+  },
+  {
+    id: 'CB00042',
+    name: 'Lê Thị Hương',
+    type: 'staff',
+    faculty: 'Phòng Đào tạo',
+    avatarUrl: 'https://placehold.co/80x80/475569/ffffff?text=LTH',
+  },
+];
+
+export function lookupPerson(id: string): PersonRecord | null {
+  const found = personRecords.find(p => p.id.toLowerCase() === id.trim().toLowerCase());
+  return found ?? null;
+}
 
 export const PARKING_RATE_PER_HOUR = 5000;
 export const LOST_CARD_PENALTY = 50000;

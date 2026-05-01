@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { User, ShieldAlert, Siren, Clock, Wifi } from 'lucide-react';
+import { User, ShieldAlert, Siren } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ExitException from '@/components/gate-ops/ExitException';
 import SecurityAlertPanel from '@/components/gate-ops/SecurityAlertPanel';
@@ -43,35 +43,27 @@ export default function GateOpsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1E293B] flex flex-col">
-      {/* Header — màu xám giống trang quản lý bãi xe */}
-      <header className="bg-[#475569] px-6 py-3 flex items-center justify-between shadow-md shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-            <ShieldAlert size={20} className="text-white" />
-          </div>
+      {/* Header — giống hệt trang quản lý bãi xe */}
+      <header className="bg-[#E2E8F0] p-4 flex justify-between items-center shadow-sm shrink-0">
+        <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-white font-bold text-lg leading-tight">Vận hành cổng</h1>
-            <p className="text-white/60 text-xs uppercase tracking-widest">Hệ thống quản lý bãi xe</p>
+            <h1 className="text-2xl font-bold tracking-tight">Vận Hành Cổng</h1>
+            <p className="text-sm font-medium text-[#64748B] uppercase tracking-wider">Hệ thống quản lý bãi xe • Bảo vệ</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full">
-            <Wifi size={13} className="text-[#4ADE80]" />
-            <span className="text-[#4ADE80] text-xs font-semibold">Online</span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full font-mono text-white text-sm">
-            <Clock size={13} className="text-white/60" />
+        <div className="flex items-center gap-6">
+          <div className="bg-white px-6 py-2 rounded-full font-mono text-xl shadow-sm">
             {currentTime}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-              <User size={16} className="text-white" />
+          <div className="bg-[#D1FAE5] text-[#10B981] px-6 py-2 rounded-full font-semibold shadow-sm flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#10B981]"></div> Online
+          </div>
+          <div className="flex flex-col items-center ml-4">
+            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm overflow-hidden border border-[#64748B]/20">
+              <User className="text-[#0284C7]" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-white text-xs font-semibold leading-tight">Bảo vệ A</span>
-              <span className="text-white/50 text-[10px]">Cổng chính</span>
-            </div>
+            <span className="text-[10px] font-bold mt-1">Bảo vệ A</span>
           </div>
         </div>
       </header>
@@ -115,7 +107,7 @@ export default function GateOpsPage() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {/* Active Alert Banner — chỉ nhấp nháy phần chữ "Cảnh báo cao", không nhấp nháy toàn khung */}
+          {/* Active Alert Banner */}
           {hasActiveAlerts && activePanel !== 'security' && (
             <div
               className="mb-4 rounded-xl border-2 border-[#EF4444] bg-[#FEF2F2] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 transition-colors"
