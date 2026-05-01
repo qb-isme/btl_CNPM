@@ -1,15 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Search, Camera, CreditCard, AlertTriangle, User,
-  CheckCircle2, Clock, ArrowLeft,
+  CheckCircle2, Clock, ArrowLeft, Siren, RefreshCw, Upload, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import {
   activeSessions,
   calcParkingFee,
@@ -98,6 +105,19 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
   const [closedSessionId, setClosedSessionId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('damaged');
 
+  // State cho dialog xuất bến khẩn cấp
+  const [showEmergencyExitDialog, setShowEmergencyExitDialog] = useState(false);
+  const [emergencyCccd, setEmergencyCccd] = useState('');
+  const [emergencyPortrait, setEmergencyPortrait] = useState<string | null>(null);
+  const [emergencyVehiclePhoto, setEmergencyVehiclePhoto] = useState<string | null>(null);
+  const portraitInputRef = useRef<HTMLInputElement>(null);
+  const vehicleInputRef = useRef<HTMLInputElement>(null);
+
+  // State cho dialog khôi phục phiên thủ công
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [recoveryCardId, setRecoveryCardId] = useState('');
+  const [recoveryPlate, setRecoveryPlate] = useState('');
+
   const handleSearch = () => {
     const q = searchPlate.trim().toUpperCase();
     if (!q) return;
@@ -151,6 +171,63 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
 
   const remainingAfterClose = matchedSessions.filter(s => s.id !== closedSessionId);
 
+  // Xử lý upload ảnh
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setImage: (url: string | null) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setImage(url);
+    }
+  };
+
+  // Xử lý xuất bến khẩn cấp
+  const handleEmergencyExit = () => {
+    if (!emergencyCccd.trim()) {
+      onToast('Vui lòng nhập số CCCD.', 'error');
+      return;
+    }
+    if (!emergencyPortrait) {
+      onToast('Vui lòng chụp ảnh chân dung.', 'error');
+      return;
+    }
+    if (!emergencyVehiclePhoto) {
+      onToast('Vui lòng chụp ảnh xe tại cổng.', 'error');
+      return;
+    }
+    // Đóng dialog và thông báo thành công
+    setShowEmergencyExitDialog(false);
+    setEmergencyCccd('');
+    setEmergencyPortrait(null);
+    setEmergencyVehiclePhoto(null);
+    onToast(`Đã xuất bến khẩn cấp cho xe ${searchPlate || 'không xác định'}. CCCD: ${emergencyCccd}.`, 'success');
+    onBarrierChange(true);
+  };
+
+  // Xử lý khôi phục phiên thủ công
+  const handleManualRecovery = () => {
+    if (!recoveryCardId.trim()) {
+      onToast('Vui lòng nhập mã thẻ.', 'error');
+      return;
+    }
+    if (!recoveryPlate.trim()) {
+      onToast('Vui lòng nhập biển số xe.', 'error');
+      return;
+    }
+    // Đóng dialog và thông báo thành công
+    setShowRecoveryDialog(false);
+    setRecoveryCardId('');
+    setRecoveryPlate('');
+    onToast(`Đã tạo phiên khôi phục thủ công cho thẻ ${recoveryCardId}, xe ${recoveryPlate}.`, 'success');
+    onBarrierChange(true);
+  };
+
+  // Kiểm tra có nên hiện nút khẩn cấp không
+  // Hiện khi: chưa nhập gì, hoặc nhập sai (notFound), hoặc không có session được chọn
+  const shouldShowEmergencyButtons = !selectedSession && (searchPlate.trim() === '' || notFound || matchedSessions.length === 0);
+
   return (
     <div className="flex flex-col gap-4">
       {/* BUOC 1: Tim kiem */}
@@ -183,6 +260,44 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
             <p className="text-sm text-[#EF4444] font-medium flex items-center gap-2">
               <AlertTriangle size={16} /> Không tìm thấy phiên đang hoạt động cho biển số này.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Nút xử lý khẩn cấp - hiện khi chưa tìm thấy phiên hoặc không có kết quả */}
+      {shouldShowEmergencyButtons && (
+        <Card className="border border-amber-300 bg-amber-50">
+          <CardContent className="pt-4 flex flex-col gap-3">
+            <p className="text-sm text-amber-700 font-medium">
+              Không tìm thấy phiên? Sử dụng một trong các tùy chọn dưới đây:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Nút Xuất bến khẩn cấp */}
+              <Button
+                variant="outline"
+                className="border-[#EF4444] text-[#EF4444] hover:bg-[#FEF2F2] flex items-center gap-2 h-auto py-3"
+                onClick={() => setShowEmergencyExitDialog(true)}
+              >
+                <Siren size={18} />
+                <div className="text-left">
+                  <p className="font-semibold">Xuất bến khẩn cấp</p>
+                  <p className="text-xs font-normal opacity-80">Xe không có phiên trong hệ thống</p>
+                </div>
+              </Button>
+
+              {/* Nút Khôi phục phiên thủ công */}
+              <Button
+                variant="outline"
+                className="border-amber-500 text-amber-700 hover:bg-amber-100 flex items-center gap-2 h-auto py-3"
+                onClick={() => setShowRecoveryDialog(true)}
+              >
+                <RefreshCw size={18} />
+                <div className="text-left">
+                  <p className="font-semibold">Khôi phục phiên thủ công</p>
+                  <p className="text-xs font-normal opacity-80">Có thẻ nhưng không tìm thấy phiên</p>
+                </div>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -340,13 +455,11 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
             </CardContent>
           </Card>
 
-          {/* Tabs xu ly */}
+          {/* Tabs xu ly - chỉ còn 2 tab: Hỏng thẻ và Mất thẻ */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full grid grid-cols-4 h-auto p-1">
+            <TabsList className="w-full grid grid-cols-2 h-auto p-1">
               <TabsTrigger value="damaged" className="text-xs py-2">Hỏng thẻ</TabsTrigger>
               <TabsTrigger value="lost" className="text-xs py-2">Mất thẻ</TabsTrigger>
-              <TabsTrigger value="error" className="text-xs py-2">Lỗi hệ thống</TabsTrigger>
-              <TabsTrigger value="nodata" className="text-xs py-2">Không dữ liệu</TabsTrigger>
             </TabsList>
 
             {/* Tab: Hong the */}
@@ -420,71 +533,204 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
               </Card>
             </TabsContent>
 
-            {/* Tab: Loi he thong */}
-            <TabsContent value="error">
-              <Card className="border border-[#E2E8F0]">
-                <CardContent className="pt-4 flex flex-col gap-3">
-                  <p className="text-sm text-[#64748B]">
-                    Lỗi hệ thống — không đọc được thẻ hoặc dữ liệu phiên bị lỗi. Tạo phiên phục hồi thủ công.
-                  </p>
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700 flex items-start gap-2">
-                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                    Hành động này sẽ tạo một phiên mới với thời gian vào = hiện tại và ghi log sự cố.
-                  </div>
-                  <PersonInfo session={selectedSession} />
-                  <Button
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                    onClick={() =>
-                      handleCloseSession(
-                        selectedSession.id,
-                        `Đã tạo phiên phục hồi thủ công cho xe ${selectedSession.licensePlate}.`,
-                        'success',
-                      )
-                    }
-                  >
-                    Phục hồi thủ công
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Tab: Khong du lieu */}
-            <TabsContent value="nodata">
-              <Card className="border border-[#E2E8F0]">
-                <CardContent className="pt-4 flex flex-col gap-3">
-                  <div className="bg-[#FEF2F2] rounded-lg p-3 text-sm text-[#EF4444] flex items-start gap-2">
-                    <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                    <span>
-                      Không có dữ liệu phiên. Xe có thể đã vào bằng cổng khác hoặc dữ liệu bị mất.
-                      Yêu cầu xuất trình <strong>CCCD</strong> và ghi nhận sự cố.
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between bg-[#F8FAFC] rounded-lg p-3">
-                    <span className="text-sm text-[#64748B]">Phí tối thiểu (1h):</span>
-                    <span className="font-bold text-[#EF4444]">{formatVND(5000 + 100000)}</span>
-                  </div>
-                  <div>
-                    <label className="text-xs text-[#64748B] font-medium block mb-1">Số CCCD / CMND</label>
-                    <Input placeholder="Nhập số CCCD của chủ xe..." />
-                  </div>
-                  <Button
-                    className="w-full bg-[#EF4444] hover:bg-red-700 text-white"
-                    onClick={() =>
-                      handleCloseSession(
-                        selectedSession.id,
-                        `Đã mở khẩn cấp + ghi cảnh báo cho xe ${selectedSession.licensePlate}.`,
-                        'success',
-                      )
-                    }
-                  >
-                    Mở khẩn cấp + Ghi cảnh báo
-                  </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
         </>
       )}
+
+      {/* Dialog Xuất bến khẩn cấp */}
+      <Dialog open={showEmergencyExitDialog} onOpenChange={setShowEmergencyExitDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-[#EF4444]">
+              <Siren size={20} />
+              Xuất bến khẩn cấp
+            </DialogTitle>
+            <DialogDescription>
+              Dành cho xe không có phiên trong hệ thống. Yêu cầu CCCD, ảnh chân dung và ảnh xe tại cổng.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 mt-2">
+            {/* Số CCCD */}
+            <div>
+              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                Số CCCD / CMND <span className="text-[#EF4444]">*</span>
+              </label>
+              <Input
+                placeholder="Nhập số CCCD của chủ xe..."
+                value={emergencyCccd}
+                onChange={e => setEmergencyCccd(e.target.value)}
+              />
+            </div>
+
+            {/* Upload ảnh chân dung */}
+            <div>
+              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                Ảnh chân dung chủ xe <span className="text-[#EF4444]">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="user"
+                ref={portraitInputRef}
+                className="hidden"
+                onChange={e => handleImageUpload(e, setEmergencyPortrait)}
+              />
+              {emergencyPortrait ? (
+                <div className="relative">
+                  <img
+                    src={emergencyPortrait}
+                    alt="Ảnh chân dung"
+                    className="w-full h-40 object-cover rounded-lg border border-[#E2E8F0]"
+                  />
+                  <button
+                    className="absolute top-2 right-2 bg-[#EF4444] text-white p-1 rounded-full hover:bg-red-600"
+                    onClick={() => setEmergencyPortrait(null)}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full h-24 border-dashed border-[#94A3B8] text-[#64748B] hover:bg-[#F8FAFC]"
+                  onClick={() => portraitInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Upload size={20} />
+                    <span className="text-xs">Chụp / Tải lên ảnh chân dung</span>
+                  </div>
+                </Button>
+              )}
+            </div>
+
+            {/* Upload ảnh xe tại cổng */}
+            <div>
+              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                Ảnh xe tại cổng <span className="text-[#EF4444]">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                ref={vehicleInputRef}
+                className="hidden"
+                onChange={e => handleImageUpload(e, setEmergencyVehiclePhoto)}
+              />
+              {emergencyVehiclePhoto ? (
+                <div className="relative">
+                  <img
+                    src={emergencyVehiclePhoto}
+                    alt="Ảnh xe"
+                    className="w-full h-40 object-cover rounded-lg border border-[#E2E8F0]"
+                  />
+                  <button
+                    className="absolute top-2 right-2 bg-[#EF4444] text-white p-1 rounded-full hover:bg-red-600"
+                    onClick={() => setEmergencyVehiclePhoto(null)}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="w-full h-24 border-dashed border-[#94A3B8] text-[#64748B] hover:bg-[#F8FAFC]"
+                  onClick={() => vehicleInputRef.current?.click()}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <Camera size={20} />
+                    <span className="text-xs">Chụp / Tải lên ảnh xe tại cổng</span>
+                  </div>
+                </Button>
+              )}
+            </div>
+
+            {/* Nút xác nhận */}
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowEmergencyExitDialog(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                className="flex-1 bg-[#EF4444] hover:bg-red-600 text-white"
+                onClick={handleEmergencyExit}
+              >
+                <Siren size={16} />
+                Xuất bến khẩn cấp
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Khôi phục phiên thủ công */}
+      <Dialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <RefreshCw size={20} />
+              Khôi phục phiên thủ công
+            </DialogTitle>
+            <DialogDescription>
+              Dành cho trường hợp có thẻ nhưng không tìm thấy phiên trong hệ thống (lỗi hệ thống).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 mt-2">
+            {/* Mã thẻ */}
+            <div>
+              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                Mã thẻ xe <span className="text-[#EF4444]">*</span>
+              </label>
+              <Input
+                placeholder="Nhập mã thẻ xe (quét hoặc nhập tay)..."
+                value={recoveryCardId}
+                onChange={e => setRecoveryCardId(e.target.value)}
+              />
+            </div>
+
+            {/* Biển số xe */}
+            <div>
+              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                Biển số xe <span className="text-[#EF4444]">*</span>
+              </label>
+              <Input
+                placeholder="Nhập biển số xe..."
+                value={recoveryPlate}
+                onChange={e => setRecoveryPlate(e.target.value)}
+              />
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700 flex items-start gap-2">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>
+                Hành động này sẽ tạo phiên mới với thời gian vào = hiện tại và ghi log sự cố vào hệ thống.
+              </span>
+            </div>
+
+            {/* Nút xác nhận */}
+            <div className="flex gap-2 mt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setShowRecoveryDialog(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                onClick={handleManualRecovery}
+              >
+                <RefreshCw size={16} />
+                Khôi phục &amp; Mở cổng
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -133,7 +133,7 @@ export default function GateOpsPage() {
               {activePanel === 'emergency' && 'Điều khiển barrier khẩn cấp'}
             </h2>
             <p className="text-sm text-[#64748B] mt-0.5">
-              {activePanel === 'exception' && 'Tra cứu phiên đỗ và xử lý các tình huống: mất/hỏng thẻ, lỗi hệ thống, không dữ liệu.'}
+              {activePanel === 'exception' && 'Tra cứu phiên đỗ và xử lý các tình huống: mất/hỏng thẻ, xuất bến khẩn cấp, khôi phục phiên thủ công.'}
               {activePanel === 'security' && 'Xem và xử lý cảnh báo biển số không khớp hoặc phương tiện trong danh sách đen.'}
               {activePanel === 'emergency' && 'Mở barrier nhanh cho các trường hợp khẩn cấp và theo dõi phiếu sự cố.'}
             </p>
