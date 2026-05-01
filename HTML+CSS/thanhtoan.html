@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh Toán - Hệ Thống Quản Lý Bãi Xe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@400;700&family=Roboto:wght@500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="thanhtoan.css">
+</head>
+<body>
+
+    <div class="container">
+        <header class="header">
+            <div class="logo-section">
+                <h1>Hệ Thống Quản Lý Bãi Xe</h1>
+                <p>Trang quản lý - Thanh toán</p>
+            </div>
+            
+            <div class="status-section">
+                <div class="status-box time-box">14:34:42</div>
+                <div class="status-box online-box">Online</div>
+            </div>
+
+            <div class="user-section">
+                <div class="user-avatar">👷</div>
+                <div class="user-name">Họ và Tên<br>(Phân loại)</div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            
+            <div class="cards-row">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="icon-circle">!</div>
+                        Dư nợ hiện tại
+                    </div>
+                    <div class="amount text-red">13.000đ</div>
+                    <div class="card-footer">
+                        <span class="icon-small">📅</span>
+                        Vui lòng thanh toán trước ngày 01 hàng tháng
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="icon-circle">✓</div>
+                        Số dư hiện tại
+                    </div>
+                    <div class="amount text-green">13.000đ</div>
+                    <div class="card-footer">
+                        <span class="icon-safe">✓</span>
+                        Mức độ an toàn
+                    </div>
+                </div>
+            </div>
+
+            <div class="session-table">
+                <!-- Header Table -->
+                <div class="table-row table-header">
+                    <span class="col-stt">Phiên thứ tự</span>
+                    <span class="col-time">Thời gian</span>
+                    <span class="col-plate">Biển số</span>
+                    <span class="col-fee">Mức phí</span>
+                    <span class="col-status">Trạng thái</span>
+                </div>
+
+                <!-- Row 1 -->
+                <div class="table-row">
+                    <span class="col-stt">1</span>
+                    <span class="col-time">15/04/2026 - 08:30<br>15/04/2026 - 10:30</span>
+                    <span class="col-plate">51AK-173.15</span>
+                    <span class="col-fee">5.000đ</span>
+                    <span class="col-status text-red">Chưa thanh toán</span>
+                </div>
+
+                <!-- Row 2 -->
+                <div class="table-row">
+                    <span class="col-stt">2</span>
+                    <span class="col-time">15/04/2026 - 14:30<br>15/04/2026 - 15:30</span>
+                    <span class="col-plate">59AE-132.98</span>
+                    <div class="col-fee fee-inner">
+                        <span class="old-fee">5.000đ</span>
+                        <span class="promo-line">3.000đ <span class="badge-yellow">Ưu đãi</span></span>
+                    </div>
+                    <span class="col-status text-red">Chưa thanh toán</span>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="table-row">
+                    <span class="col-stt">3</span>
+                    <span class="col-time">15/04/2026 - 16:45<br>15/04/2026 - 17:15</span>
+                    <span class="col-plate">50B1-315.05</span>
+                    <span class="col-fee">5.000đ</span>
+                    <span class="col-status text-red">Chưa thanh toán</span>
+                </div>
+            </div>
+
+            <div class="debt-details">
+                <div class="info-box pb-30">
+                    <div class="row text-red mb-20">Chi tiết dư nợ</div>
+                    <div class="row"><span>Phiên thứ tự: 1</span><span>5.000đ</span></div>
+                    <div class="row"><span>Phiên thứ tự: 2</span><span>5.000đ</span></div>
+                    <div class="row"><span>Phiên thứ tự: 3</span><span>5.000đ</span></div>
+                </div>
+
+                <div class="info-box">
+                    <div class="row"><span>Mã giao dịch:</span><span>#BK00001</span></div>
+                    <div class="row text-red mt-20"><span>Số tiền cần thanh toán</span><span>15.000đ</span></div>
+                    <div class="row text-green mt-10"><span>Ưu đãi (-40%)</span><span>-2.000đ</span></div>
+                    <div class="divider"></div>
+                    <div class="row"><span>Số tiền thanh toán thực tế</span><span>13.000đ</span></div>
+                </div>
+
+                <button class="btn-confirm">
+                    <span>💵</span> Xác nhận thanh toán
+                </button>
+            </div>
+
+            <div class="dialog-card">
+                <div class="dialog-title text-red">
+                    <div class="icon-square-red">!</div> Giao dịch thất bại
+                </div>
+                <p class="dialog-sub text-gray">Hệ thống phản hồi thất bại. Vui lòng thử lại:</p>
+                <p class="dialog-text">Số dư hiện tại không đủ để thanh toán.</p>
+                <p class="dialog-text">Mật khẩu khônng hợp lệ.</p>
+                
+                <div class="dialog-actions space-between">
+                    <button class="btn btn-red">Thử lại</button>
+                    <button class="btn btn-green">Trở về màn hình chính</button>
+                </div>
+            </div>
+
+            <div class="dialog-card">
+                <div class="dialog-title text-green">
+                    <div class="icon-circle-green">✓</div> Giao dịch thành công
+                </div>
+                <p class="dialog-sub text-gray">Hệ thống phản hồi thành công</p>
+                
+                <div class="info-box success-box">
+                    <div class="row"><span>Mã giao dịch:</span><span>#BK00001</span></div>
+                    <div class="row mt-10"><span>Thời gian:</span><span>20:14, 16/04/2026</span></div>
+                    <div class="row mt-10"><span>Số tiền:</span><span>13.000đ</span></div>
+                </div>
+
+                <div class="dialog-actions space-between">
+                    <button class="btn btn-green">Trở về màn hình chính</button>
+                    <button class="btn btn-gray">Hóa đơn</button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+</body>
+</html>

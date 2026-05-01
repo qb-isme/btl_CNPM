@@ -1,0 +1,493 @@
+"use client"
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+interface Transaction {
+  id: string;
+  sessionNumber: number;
+  licensePlate: string;
+  checkInTime: string;
+  checkOutTime: string;
+  originalFee: number;
+  discount: number;
+  finalFee: number;
+  status: 'paid' | 'unpaid';
+  paymentTime?: string;
+  transactionCode?: string;
+  hasPromotion?: boolean;
+  promotionLabel?: string;
+}
+
+interface UserAccount {
+  id: string;
+  name: string;
+  role: string;
+  email?: string;
+  balance: number;
+  totalDebt: number;
+}
+
+export default function PaymentPage() {
+  const router = useRouter();
+  const [currentTime, setCurrentTime] = useState('');
+  const [userAccount, setUserAccount] = useState<UserAccount | null>(null);
+  const [unpaidTransactions, setUnpaidTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [otp, setOtp] = useState('');
+  const [paymentResult, setPaymentResult] = useState<{
+    transactionCode: string;
+    amount: number;
+    time: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async (opts?: { showFullPageLoading?: boolean }) => {
+    const showFullPageLoading = opts?.showFullPageLoading !== false
+    try {
+      if (showFullPageLoading) setLoading(true)
+
+      const [userRes, unpaidRes] = await Promise.all([
+        fetch('/api/user/balance', { cache: 'no-store' }),
+        fetch('/api/transactions?status=unpaid', { cache: 'no-store' }),
+      ])
+
+      const userData = await userRes.json()
+      const unpaidData = await unpaidRes.json()
+
+      if (userData.success) {
+        setUserAccount(userData.user)
+      }
+
+      if (unpaidData.success) {
+        setUnpaidTransactions(unpaidData.transactions)
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      if (showFullPageLoading) setLoading(false)
+    }
+  }
+
+  const handlePayment = async () => {
+    if (!otp) {
+      setErrorMessage('Vui lòng nhập mật khẩu.');
+      return;
+    }
+
+    try {
+      const transactionIds = unpaidTransactions.map(t => t.id);
+      
+      const response = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionIds, otp }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        const paidAmount = userAccount?.totalDebt ?? 0
+        setUserAccount((prev) =>
+          prev
+            ? {
+                ...prev,
+                balance: typeof result.newBalance === 'number' ? result.newBalance : prev.balance,
+                totalDebt: typeof result.newDebt === 'number' ? result.newDebt : prev.totalDebt,
+              }
+            : prev
+        )
+        setPaymentResult({
+          transactionCode: result.transactionCode,
+          amount: paidAmount,
+          time: new Date().toLocaleString('vi-VN', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }),
+        });
+        setShowPaymentDialog(false);
+        setShowSuccessDialog(true);
+        setOtp('');
+        await fetchData({ showFullPageLoading: false });
+      } else {
+        setErrorMessage(result.message || 'Giao dịch thất bại.');
+        setShowPaymentDialog(false);
+        setShowErrorDialog(true);
+      }
+    } catch (error) {
+      setErrorMessage('Đã xảy ra lỗi trong quá trình xử lý thanh toán.');
+      setShowPaymentDialog(false);
+      setShowErrorDialog(true);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `${amount.toLocaleString('vi-VN')}đ`;
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${day}/${month}/${year} - ${hour}:${minute}`;
+  };
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#F4F4F4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ animation: 'spin 1s linear infinite', borderRadius: '50%', height: '48px', width: '48px', borderBottom: '2px solid #0284C7', margin: '0 auto 16px' }}></div>
+          <p style={{ color: '#64748B' }}>Đang tải dữ liệu...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#F4F4F4', fontFamily: "'Roboto Condensed', sans-serif" }}>
+      {/* Header */}
+      <header style={{ width: '100%', height: '152px', background: '#D9D9D9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 45px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <h1 style={{ fontWeight: 700, fontSize: '40px', lineHeight: '47px', margin: 0 }}>Hệ Thống Quản Lý Bãi Xe</h1>
+          <p style={{ fontWeight: 400, fontSize: '20px', lineHeight: '23px', marginTop: '5px', textTransform: 'uppercase' }}>
+            Trang quản lý - Thanh toán
+          </p>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <div style={{ width: '284px', height: '58px', borderRadius: '25px', background: '#FFFFFF', color: '#1E293B', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>
+            {currentTime}
+          </div>
+          <div style={{ width: '284px', height: '58px', borderRadius: '25px', background: '#D1FAE5', color: '#047857', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px' }}>
+            Online
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
+          <div style={{ width: '74px', height: '72px', background: '#E2E8F0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '35px' }}>
+            👷
+          </div>
+          <div style={{ fontFamily: 'Roboto, sans-serif', fontWeight: 500, fontSize: '14px', textAlign: 'center' }}>
+            {userAccount?.name || 'Họ và Tên'}<br />({userAccount?.role || 'Phân loại'})
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main style={{ width: '1440px', margin: '0 auto', padding: '50px 45px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '50px' }}>
+            {/* Cards Row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: '40px' }}>
+              <div style={{ flex: 1, background: '#F3E6E6', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '40px 30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ fontSize: '39px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div style={{ width: '35px', height: '35px', background: '#33363F', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                    !
+                  </div>
+                  Dư nợ hiện tại
+                </div>
+                <div style={{ fontSize: '80px', textAlign: 'center', margin: '20px 0', color: '#EF4444' }}>
+                  {formatCurrency(userAccount?.totalDebt || 0)}
+                </div>
+                <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '35px' }}>📅</span>
+                  Vui lòng thanh toán trước ngày 01 hàng tháng
+                </div>
+              </div>
+
+              <div style={{ flex: 1, background: '#F3E6E6', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '40px 30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div style={{ fontSize: '39px', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <div style={{ width: '35px', height: '35px', background: '#33363F', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                    ✓
+                  </div>
+                  Số dư hiện tại
+                </div>
+                <div style={{ fontSize: '80px', textAlign: 'center', margin: '20px 0', color: '#10B981' }}>
+                  {formatCurrency(userAccount?.balance || 0)}
+                </div>
+                <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', textAlign: 'center' }}>
+                  <div style={{ color: 'white', background: '#10B981', clipPath: 'polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%)', width: '30px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginRight: '10px' }}>
+                    ✓
+                  </div>
+                  Mức độ an toàn
+                </div>
+              </div>
+            </div>
+
+            {/* Session Table */}
+            <div style={{ width: '100%', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '30px 40px' }}>
+              {/* Table Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 0', fontSize: '30px', fontWeight: 700, borderBottom: '2px solid #64748B', marginBottom: '10px' }}>
+                <span style={{ flex: '0.5', textAlign: 'center', display: 'block' }}>Phiên thứ tự</span>
+                <span style={{ flex: '2', textAlign: 'center', display: 'block' }}>Thời gian</span>
+                <span style={{ flex: '1.5', textAlign: 'center', display: 'block' }}>Biển số</span>
+                <span style={{ flex: '1.5', textAlign: 'center', display: 'block' }}>Mức phí</span>
+                <span style={{ flex: '1.5', textAlign: 'center', display: 'block' }}>Trạng thái</span>
+              </div>
+              
+              {/* Table Rows */}
+              {unpaidTransactions.length === 0 ? (
+                <div style={{ padding: '60px 0', textAlign: 'center', fontSize: '30px', color: '#64748B' }}>
+                  Không có giao dịch chưa thanh toán
+                </div>
+              ) : (
+                unpaidTransactions.map((transaction) => (
+                  <div key={transaction.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 0', fontSize: '30px', borderBottom: '1px solid #E2E8F0' }}>
+                    <span style={{ flex: '0.5', textAlign: 'center', display: 'block' }}>{transaction.sessionNumber}</span>
+                    <span style={{ flex: '2', textAlign: 'center', display: 'block' }}>
+                      {formatDateTime(transaction.checkInTime)}<br />
+                      {formatDateTime(transaction.checkOutTime)}
+                    </span>
+                    <span style={{ flex: '1.5', textAlign: 'center', display: 'block' }}>{transaction.licensePlate}</span>
+                    {transaction.hasPromotion ? (
+                      <div style={{ flex: '1.5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                        <span style={{ textDecoration: 'line-through', opacity: 0.3 }}>{formatCurrency(transaction.originalFee)}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {formatCurrency(transaction.finalFee)} <span style={{ background: '#F8D944', borderRadius: '15px', fontWeight: 700, fontSize: '20px', color: '#1E293B', padding: '3px 10px', marginLeft: '10px', boxShadow: '0px 2px 2px rgba(0,0,0,0.25)', position: 'relative', top: '-3px' }}>Ưu đãi</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <span style={{ flex: '1.5', textAlign: 'center', display: 'block' }}>{formatCurrency(transaction.finalFee)}</span>
+                    )}
+                    <span style={{ flex: '1.5', textAlign: 'center', display: 'block', color: '#EF4444' }}>Chưa thanh toán</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Debt Details */}
+            {unpaidTransactions.length > 0 && (
+              <div style={{ width: '841px', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: '100%', background: '#E0F2FE', border: '2px solid #64748B', boxShadow: '0px 5px 5px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '20px 40px 30px', marginBottom: '20px', fontSize: '30px' }}>
+                  <div style={{ color: '#EF4444', marginBottom: '20px' }}>Chi tiết dư nợ</div>
+                  {unpaidTransactions.map((transaction) => (
+                    <div key={transaction.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span>Phiên thứ tự: {transaction.sessionNumber}</span>
+                      <span>{formatCurrency(transaction.finalFee)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ width: '100%', background: '#E0F2FE', border: '2px solid #64748B', boxShadow: '0px 5px 5px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '20px 40px', marginBottom: '20px', fontSize: '30px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <span>Mã giao dịch:</span>
+                    <span>#BK00001</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', marginBottom: '10px', color: '#EF4444' }}>
+                    <span>Số tiền cần thanh toán</span>
+                    <span>{formatCurrency(unpaidTransactions.reduce((sum, t) => sum + t.originalFee, 0))}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', marginBottom: '10px', color: '#10B981' }}>
+                    <span>Ưu đãi (-40%)</span>
+                    <span>-{formatCurrency(unpaidTransactions.reduce((sum, t) => sum + t.discount, 0))}</span>
+                  </div>
+                  <div style={{ width: '100%', height: '2px', backgroundColor: '#000000', margin: '20px 0' }}></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <span>Số tiền thanh toán thực tế</span>
+                    <span>{formatCurrency(userAccount?.totalDebt || 0)}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowPaymentDialog(true)}
+                  style={{ width: 'fit-content', minWidth: '400px', height: '90px', background: '#399FD6', border: '2px solid #CBD5E1', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '20px', fontFamily: "'Roboto Condensed', sans-serif", fontSize: '50px', color: '#FFFFFF', cursor: 'pointer', marginTop: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', padding: '0 30px' }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', lineHeight: 0 }}>💵</span> Xác nhận thanh toán
+                </button>
+              </div>
+            )}
+
+        <div style={{ display: 'flex', justifyContent: 'center', width: '100%', marginTop: '10px' }}>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard')}
+            style={{ background: '#13B47E', border: '1px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '10px', color: '#FFFFFF', fontSize: '32px', fontWeight: 700, padding: '15px 40px', cursor: 'pointer', fontFamily: "'Roboto Condensed', sans-serif" }}
+          >
+            Trở về màn hình chính
+          </button>
+        </div>
+      </main>
+
+      {/* Payment Dialog */}
+      {showPaymentDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30, 41, 59, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ width: '963px', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 60px' }}>
+            <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', color: '#0284C7' }}>
+              💳 Thanh toán qua BKPay
+            </div>
+            <p style={{ fontSize: '30px', marginBottom: '20px', color: '#64748B' }}></p>
+            
+            <div style={{ background: '#E0F2FE', border: '2px solid #64748B', boxShadow: '0px 5px 5px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '20px 40px', marginBottom: '20px', fontSize: '30px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span>Số tiền thanh toán:</span>
+                <span style={{ color: '#EF4444', fontWeight: 'bold' }}>{formatCurrency(userAccount?.totalDebt || 0)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Số dư hiện tại:</span>
+                <span style={{ color: '#10B981', fontWeight: 'bold' }}>{formatCurrency(userAccount?.balance || 0)}</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '30px' }}>
+              <label style={{ fontSize: '30px', display: 'block', marginBottom: '20px' }}>Vui lòng nhập mật khẩu để xác nhận thanh toán</label>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <input
+                    key={index}
+                    type="text"
+                    value={otp[index] || ''}
+                    onChange={(e) => {
+                      const newOtp = otp.split('');
+                      newOtp[index] = e.target.value.slice(-1);
+                      setOtp(newOtp.join(''));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !otp[index]) {
+                        const prevInput = document.querySelector(`input[data-index="${index - 1}"]`) as HTMLInputElement;
+                        if (prevInput) prevInput.focus();
+                      }
+                    }}
+                    onInput={(e) => {
+                      if ((e.target as HTMLInputElement).value) {
+                        const nextInput = document.querySelector(`input[data-index="${index + 1}"]`) as HTMLInputElement;
+                        if (nextInput) nextInput.focus();
+                      }
+                    }}
+                    data-index={index}
+                    maxLength={1}
+                    style={{ width: '70px', height: '70px', fontSize: '40px', textAlign: 'center', border: '2px solid #64748B', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 'bold' }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '80px', marginTop: '40px' }}>
+              <button
+                onClick={() => {
+                  setShowPaymentDialog(false);
+                  setOtp('');
+                }}
+                style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#1E293B', background: '#E2E8F0', cursor: 'pointer', padding: '0 40px' }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handlePayment}
+                style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#FFFFFF', background: '#0284C7', cursor: 'pointer', padding: '0 40px' }}
+              >
+                Xác nhận thanh toán
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Dialog */}
+      {showSuccessDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30, 41, 59, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ width: '963px', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 60px' }}>
+            <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', color: '#10B981' }}>
+              <div style={{ background: '#10B981', color: 'white', width: '35px', height: '35px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>✓</div>
+              Giao dịch thành công
+            </div>
+            <p style={{ fontSize: '30px', marginBottom: '20px', color: '#64748B' }}>Hệ thống phản hồi thành công</p>
+            
+            <div onClick={() => router.push('/history')} style={{ background: '#E4F3DF', border: '2px solid #64748B', boxShadow: '0px 5px 5px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '20px 40px', marginBottom: '20px', fontSize: '30px', cursor: 'pointer', transition: 'all 0.3s ease' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span>Mã giao dịch:</span>
+                <span>{paymentResult?.transactionCode}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', marginBottom: '10px' }}>
+                <span>Thời gian:</span>
+                <span>{paymentResult?.time}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                <span>Số tiền:</span>
+                <span>{formatCurrency(paymentResult?.amount || 0)}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px' }}>
+              <button
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  router.push('/dashboard');
+                }}
+                style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#FFFFFF', background: '#10B981', cursor: 'pointer', padding: '0 40px' }}
+              >
+                Trở về màn hình chính
+              </button>
+              <button
+                onClick={() => {
+                  setShowSuccessDialog(false);
+                  router.push('/history');
+                }}
+                style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#FFFFFF', background: '#64748B', cursor: 'pointer', padding: '0 40px' }}
+              >
+                Hóa đơn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Dialog */}
+      {showErrorDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30, 41, 59, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ width: '963px', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 60px' }}>
+            <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', color: '#EF4444' }}>
+              <div style={{ background: '#FF2116', color: 'white', width: '35px', height: '35px', borderRadius: '5px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontWeight: 'bold' }}>!</div>
+              Giao dịch thất bại
+            </div>
+            <p style={{ fontSize: '30px', marginBottom: '20px', color: '#64748B' }}>Hệ thống phản hồi thất bại. Vui lòng thử lại:</p>
+            <p style={{ fontSize: '30px', color: '#1E293B', marginBottom: '10px' }}>{errorMessage}</p>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '40px' }}>
+              <button
+                onClick={() => {
+                  setShowErrorDialog(false);
+                  setShowPaymentDialog(true);
+                  setOtp('');
+                }}
+                style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#FFFFFF', background: '#FF2116', cursor: 'pointer', padding: '0 40px' }}
+              >
+                Thử lại
+              </button>
+              <button
+                onClick={() => {
+                  setShowErrorDialog(false);
+                  router.push('/dashboard');
+                }}
+                style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#FFFFFF', background: '#10B981', cursor: 'pointer', padding: '0 40px' }}
+              >
+                Trở về màn hình chính
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,397 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Roboto Condensed', sans-serif;
+    background-color: #F4F4F4;
+    color: #000000;
+    display: flex;
+    justify-content: center;
+}
+
+.container {
+    width: 1440px;
+    min-height: 1024px;
+    background: #FFFFFF;
+    position: relative;
+    padding-bottom: 50px;
+}
+
+/* --- HEADER --- */
+.header {
+    width: 100%;
+    height: 152px;
+    background: #D9D9D9;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 45px;
+}
+
+/* Căn giữa chữ "Trang quản lý..." dưới "Hệ Thống..." */
+.logo-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.logo-section h1 {
+    font-weight: 700;
+    font-size: 40px;
+    line-height: 47px;
+    margin: 0;
+}
+
+.logo-section p {
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 23px;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+
+.status-section {
+    display: flex;
+    gap: 20px;
+}
+
+.status-box {
+    width: 284px;
+    height: 58px;
+    border-radius: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+}
+
+.time-box {
+    background: #FFFFFF;
+    color: #1E293B;
+}
+
+.online-box {
+    background: #D1FAE5;
+    color: #047857;
+}
+
+.user-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.user-avatar {
+    width: 74px;
+    height: 72px;
+    background: #E2E8F0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 35px;
+}
+
+.user-name {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* --- MAIN CONTENT --- */
+.main-content {
+    padding: 50px 45px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 50px;
+}
+
+/* --- TOP CARDS --- */
+.cards-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 40px;
+}
+
+.card {
+    flex: 1;
+    background: #F3E6E6;
+    border: 2px solid #64748B;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    border-radius: 20px;
+    padding: 40px 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.card-header {
+    font-size: 39px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.icon-circle {
+    width: 35px;
+    height: 35px;
+    background: #33363F;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.amount {
+    font-size: 80px;
+    text-align: center;
+    margin: 20px 0;
+}
+
+.text-red { color: #EF4444; }
+.text-green { color: #10B981; }
+
+.card-footer {
+    font-size: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    text-align: center;
+}
+
+.icon-small { font-size: 35px; }
+
+.icon-safe {
+    color: white;
+    background: #10B981;
+    clip-path: polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%);
+    width: 30px; 
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    margin-right: 10px;
+}
+
+/* --- SESSION TABLE (FIXED COLUMNS & ALIGNMENT) --- */
+.session-table {
+    width: 100%;
+    background: #FFFFFF;
+    border: 2px solid #64748B;
+    box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.25);
+    border-radius: 20px;
+    padding: 30px 40px;
+}
+
+.table-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 0;
+    font-size: 30px;
+    border-bottom: 1px solid #E2E8F0;
+}
+
+.table-header {
+    font-weight: 700;
+    border-bottom: 2px solid #64748B;
+    margin-bottom: 10px;
+}
+
+.table-row:last-child { border-bottom: none; }
+
+/* Cố định độ rộng từng cột */
+.col-stt { flex: 0.5; text-align: center; display: block; }
+.col-time { flex: 2; text-align: center; display: block; }
+.col-plate { flex: 1.5; text-align: center; display: block; }
+.col-fee { flex: 1.5; text-align: center; display: block; }
+.col-status { flex: 1.5; text-align: center; display: block; }
+
+/* Cột phí đặc biệt có ưu đãi */
+.fee-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.promo-line {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.badge-yellow {
+    background: #F8D944;
+    border-radius: 15px;
+    font-weight: 700;
+    font-size: 20px;
+    color: #1E293B;
+    padding: 3px 10px;
+    margin-left: 10px;
+    box-shadow: 0px 2px 2px rgba(0,0,0,0.25);
+    /* Chỉnh lên xuống cho badge */
+    position: relative;
+    top: -3px; 
+}
+
+.old-fee {
+    text-decoration: line-through;
+    opacity: 0.3;
+}
+
+/* --- DEBT DETAILS --- */
+.debt-details {
+    width: 841px;
+    background: #FFFFFF;
+    border: 2px solid #64748B;
+    box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.25);
+    border-radius: 25px;
+    padding: 40px 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.info-box {
+    width: 100%;
+    background: #E0F2FE;
+    border: 2px solid #64748B;
+    box-shadow: 0px 5px 5px rgba(0, 0, 0, 0.25);
+    border-radius: 20px;
+    padding: 20px 40px;
+    margin-bottom: 20px;
+    font-size: 30px;
+}
+
+.success-box { background: #E4F3DF; }
+
+.row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.divider {
+    width: 100%;
+    height: 2px;
+    background-color: #000000;
+    margin: 20px 0;
+}
+
+/* Tinh chỉnh nút Xác nhận thanh toán & Icon */
+.btn-confirm {
+    width: 510px;
+    height: 90px;
+    background: #399FD6;
+    border: 2px solid #CBD5E1;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    border-radius: 20px;
+    font-family: 'Roboto Condensed', sans-serif;
+    font-size: 50px;
+    color: #FFFFFF;
+    cursor: pointer;
+    margin-top: 20px;
+    /* Căn giữa icon và chữ */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+}
+
+.btn-confirm span {
+    display: flex;
+    align-items: center;
+    line-height: 0; /* Triệt tiêu khoảng trống thừa của icon emoji */
+}
+
+/* --- DIALOGS --- */
+.dialog-card {
+    width: 963px;
+    background: #FFFFFF;
+    border: 2px solid #64748B;
+    box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.25);
+    border-radius: 25px;
+    padding: 40px 60px;
+}
+
+.dialog-title {
+    font-size: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.icon-square-red {
+    background: #FF2116;
+    color: white;
+    width: 35px;
+    height: 35px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+
+.icon-circle-green {
+    background: #10B981;
+    color: white;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.dialog-sub { font-size: 30px; margin-bottom: 20px; }
+.dialog-text { font-size: 30px; color: #1E293B; margin-bottom: 10px; }
+
+.dialog-actions {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 40px;
+}
+
+.space-between { justify-content: space-between; }
+
+.btn {
+    height: 60px;
+    border: 2px solid #64748B;
+    box-shadow: 0px 4px 4px rgba(0, 0, 0, 0.25);
+    border-radius: 15px;
+    font-family: 'Roboto Condensed', sans-serif;
+    font-weight: 700;
+    font-size: 30px;
+    color: #FFFFFF;
+    cursor: pointer;
+    padding: 0 40px;
+}
+
+.btn-red { background: #FF2116; }
+.btn-green { background: #10B981; }
+.btn-gray { background: #64748B; }
+
+/* Utilities */
+.text-gray { color: #64748B; }
+.mb-20 { margin-bottom: 20px; }
+.mt-20 { margin-top: 20px; }
+.mt-10 { margin-top: 10px; }
+.pb-30 { padding-bottom: 30px; }

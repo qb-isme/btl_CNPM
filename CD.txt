@@ -1,0 +1,162 @@
+1. Payment
+a) Mã UML đặc tả
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+
+' Style cho các tầng
+skinparam class {
+    BackgroundColor #F9FBFF
+    BorderColor #2F5597
+    ArrowColor #2F5597
+}
+
+' ===== ENTITY LAYER =====
+class UserAccount <<Entity>> {
+  - userId: String
+  - fullName: String
+  - role: String
+  - currentDebt: Double
+  --
+  + getPendingSessions(userId: String): List<ParkingSession>
+  + deductDebt(amount: Double): void
+}
+
+class ParkingSession <<Entity>> {
+  - sessionId: String
+  - timeIn: DateTime
+  - timeOut: DateTime
+  - plateIn: String
+  - plateOut: String
+  - fee: Double
+  - status: String
+  --
+  + calculateFeeWithDiscount(role: String): Double
+  + updateStatus(newStatus: String): boolean
+}
+
+class Transaction <<Entity>> {
+  - transactionId: String
+  - amount: Double
+  - status: String
+  - timestamp: DateTime
+  --
+  + createTransaction(userId: String, amount: Double): Transaction
+  + logTransaction(): boolean
+}
+
+' ===== CONTROLLER =====
+class PaymentController <<Controller>> {
+  + getDebtInfo(userId: String): Response
+  + initiatePayment(transactionId: String): String
+  + handleBKPayCallback(transactionId: String, status: String): boolean
+}
+
+' ===== RELATIONSHIPS =====
+UserAccount "1" --> "0..*" ParkingSession : owns
+UserAccount "1" --> "0..*" Transaction : initiates
+Transaction "1" o-- "1..*" ParkingSession : includes
+
+' Điều phối logic theo Sequence và Activity Diagram
+PaymentController ..> UserAccount : "1. Truy vấn nợ & Cập nhật nợ"
+PaymentController ..> ParkingSession : "2. Tính phí/ưu đãi & Cập nhật status"
+PaymentController ..> Transaction : "3. Quản lý giao dịch"
+
+@enduml
+b) Đặc tả
+UserAccount:
+getPendingSessions(String userId) → List<ParkingSession>: Truy xuất cơ sở dữ liệu danh sách các phiên gửi xe của người dùng đang có trạng thái "Pending_Payment" (Chờ thanh toán).
+deductDebt(Double amount) → void: Thực hiện phép tính currentDebt = currentDebt - amount. Giao dịch lấy amount = Tổng nợ, nên khi thanh toán thành công sẽ đưa dư nợ về 0.
+ParkingSession:
+calculateFee(String role) → Double: Lấy giá trị fee, kiểm tra ưu đãi theo role; nếu là "Cán bộ/Giảng viên" thì áp dụng mức phí ưu đãi và trả về số tiền cuối cùng.
+updateStatus(String newStatus) → boolean: Cập nhật trạng thái từ "Pending_Payment" thành "Paid" khi giao dịch thành công.
+Transaction:
+createTransaction(String userId, Double amount) → Transaction: Tạo giao dịch mới với amount là tổng nợ, trạng thái "Processing", sinh transactionId duy nhất.
+logTransaction() → boolean: Ghi nhận giao dịch vào cơ sở dữ liệu để đối soát.
+PaymentController:
+getDebtInfo(String userId) → Response: Gọi ParkingSession.calculateFee(), tổng hợp danh sách phiên và dư nợ để trả về cho giao diện.
+initiatePayment(String transactionId) → String: Gọi API BKPay và trả về URL chuyển hướng thanh toán.
+handleBKPayCallback(String transactionId, String status) → boolean: Nhận callback từ BKPay và cập nhật trạng thái các phiên nếu thanh toán thành công.
+2. History
+a) Mã UML đặc tả
+@startuml
+' ===== GLOBAL STYLE =====
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam roundcorner 15
+
+skinparam class {
+    BackgroundColor #F9FBFF
+    BorderColor #2F5597
+    ArrowColor #2F5597
+    FontSize 13
+}
+
+skinparam stereotypeCBackgroundColor #E3F2FD
+skinparam stereotypeEBackgroundColor #E8F5E9
+skinparam stereotypeBBackgroundColor #FFF3E0
+
+' ===== LAYOUT =====
+left to right direction
+
+' ===== ENTITY LAYER =====
+class UserAccount <<Entity>> {
+  - userId: String
+  - fullName: String
+  - role: String
+  - email: String
+  --
+  + getPendingSessions(userId: String): List<ParkingSession>
+}
+
+class ParkingSession <<Entity>> {
+  - sessionId: String
+  - timeIn: DateTime
+  - timeOut: DateTime
+  - plateOut: String
+  - fee: double
+  - status: String
+  --
+  + calculateFee(role: String): double
+  + updateStatus(newStatus: String): boolean
+}
+
+class Transaction <<Entity>> {
+  - transactionId: String
+  - amount: double
+  - timestamp: DateTime
+  - paymentMethod: String
+  - status: String
+  --
+  + createTransaction(userId: String, amount: double): Transaction
+  + logTransaction(): boolean
+}
+
+' ===== CONTROLLER =====
+class PaymentController <<Controller>> {
+  + initiatePayment(transactionId: String): String
+  + handleBKPayCallback(transactionId: String, status: String): boolean
+}
+
+' ===== RELATIONSHIPS =====
+UserAccount "1" --> "0..*" ParkingSession : owns
+UserAccount "1" --> "0..*" Transaction : initiates
+
+' ĐÃ SỬA: Chuyển từ *-- sang o-- (Aggregation)
+Transaction "1" o-- "1..*" ParkingSession : includes
+
+PaymentController ..> Transaction : controls
+
+@enduml
+b) Đặc tả
+UserAccount:
+calculateTotalDebt() → double: Tính tổng dư nợ từ các phiên chưa thanh toán.
+getCurrentBalance() → double: Lấy số dư hiện tại của tài khoản người dùng.
+ParkingSession:
+getHistory(String userId) → List<ParkingSession>: Lấy toàn bộ lịch sử phiên gửi xe của người dùng.
+filterSessions(String userId, DateTime startTime, DateTime endTime, String plate) → List<ParkingSession>: Lọc phiên gửi xe theo thời gian hoặc biển số.
+Receipt:
+generateReceipt(List<String> sessionIds) → Receipt: Tạo hóa đơn từ tối đa 10 phiên đã thanh toán, tính tổng tiền và lưu file.
+downloadPDF() → File: Trả về file PDF của hóa đơn để người dùng tải xuống.

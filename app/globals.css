@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --color-slate-50: #F8FAFC;
+  --color-slate-200: #E2E8F0;
+  --color-slate-400: #94A3B8;
+  --color-slate-500: #64748B;
+  --color-slate-800: #1E293B;
+  --color-emerald-500: #10B981;
+  --color-emerald-100: #D1FAE5;
+  --color-amber-500: #F59E0B;
+  --color-red-500: #EF4444;
+  --color-red-50: #FEF2F2;
+  --color-sky-600: #0284C7;
+  --color-sky-700: #0369A1;
+  --color-sky-400: #38BDF8;
+  --color-sky-50: #F0F9FF;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #F8FAFC;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Striped background for maintenance zones */
+.bg-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(239, 68, 68, 0.1) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(239, 68, 68, 0.1) 50%,
+    rgba(239, 68, 68, 0.1) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 20px 20px;
+}
+
+/* Dash animation for navigation path */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.animate-dash {
+  animation: dash 1s linear infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94A3B8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
