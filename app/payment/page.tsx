@@ -45,6 +45,11 @@ export default function PaymentPage() {
     amount: number;
     time: string;
   } | null>(null);
+  
+  const [showEditBalanceDialog, setShowEditBalanceDialog] = useState(false);
+  const [editBalanceValue, setEditBalanceValue] = useState('');
+  const [demoPromotionPercent, setDemoPromotionPercent] = useState(40);
+  const [demoPromotionInput, setDemoPromotionInput] = useState('40');
 
   useEffect(() => {
     const updateTime = () => {
@@ -65,13 +70,15 @@ export default function PaymentPage() {
     try {
       if (showFullPageLoading) setLoading(true)
 
-      const [userRes, unpaidRes] = await Promise.all([
+      const [userRes, unpaidRes, promoRes] = await Promise.all([
         fetch('/api/user/balance', { cache: 'no-store' }),
         fetch('/api/transactions?status=unpaid', { cache: 'no-store' }),
+        fetch('/api/demo/promotion', { cache: 'no-store' }),
       ])
 
       const userData = await userRes.json()
       const unpaidData = await unpaidRes.json()
+      const promoData = await promoRes.json()
 
       if (userData.success) {
         setUserAccount(userData.user)
@@ -79,6 +86,11 @@ export default function PaymentPage() {
 
       if (unpaidData.success) {
         setUnpaidTransactions(unpaidData.transactions)
+      }
+
+      if (promoData.success && typeof promoData.percent === 'number') {
+        setDemoPromotionPercent(promoData.percent)
+        setDemoPromotionInput(String(promoData.percent))
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -139,6 +151,60 @@ export default function PaymentPage() {
       setErrorMessage('Đã xảy ra lỗi trong quá trình xử lý thanh toán.');
       setShowPaymentDialog(false);
       setShowErrorDialog(true);
+    }
+  };
+
+  const handleApplyDemoPromotion = async () => {
+    const p = parseFloat(demoPromotionInput);
+    if (Number.isNaN(p) || p < 0 || p > 100) {
+      alert('Nhập phần trăm ưu đãi từ 0 đến 100');
+      return;
+    }
+    try {
+      const response = await fetch('/api/demo/promotion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ percent: p }),
+      });
+      const result = await response.json();
+      if (result.success && typeof result.percent === 'number') {
+        setDemoPromotionPercent(result.percent);
+        setDemoPromotionInput(String(result.percent));
+        await fetchData({ showFullPageLoading: false });
+      } else {
+        alert('Cập nhật mức ưu đãi thất bại');
+      }
+    } catch {
+      alert('Cập nhật mức ưu đãi thất bại');
+    }
+  };
+
+  const handleUpdateBalance = async () => {
+    const newBalance = parseFloat(editBalanceValue);
+    if (isNaN(newBalance) || newBalance < 0) {
+      alert('Vui lòng nhập số tiền hợp lệ');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/user/balance/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance: newBalance }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setUserAccount(result.user);
+        setShowEditBalanceDialog(false);
+        setEditBalanceValue('');
+      } else {
+        alert('Cập nhật số dư thất bại');
+      }
+    } catch (error) {
+      console.error('Error updating balance:', error);
+      alert('Cập nhật số dư thất bại');
     }
   };
 
@@ -218,20 +284,42 @@ export default function PaymentPage() {
               </div>
 
               <div style={{ flex: 1, background: '#F3E6E6', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '40px 30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ fontSize: '39px', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{ width: '35px', height: '35px', background: '#33363F', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
-                    ✓
+                <div style={{ fontSize: '39px', display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ width: '35px', height: '35px', background: '#33363F', borderRadius: '50%', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                      ✓
+                    </div>
+                    Số dư hiện tại
                   </div>
-                  Số dư hiện tại
+                  <button
+                    onClick={() => {
+                      setShowEditBalanceDialog(true);
+                      setEditBalanceValue((userAccount?.balance || 0).toString());
+                    }}
+                    style={{ background: '#0284C7', color: 'white', border: 'none', borderRadius: '10px', padding: '8px 15px', fontSize: '18px', cursor: 'pointer', fontFamily: "'Roboto Condensed', sans-serif" }}
+                  >
+                    ✎ Chỉnh sửa
+                  </button>
                 </div>
                 <div style={{ fontSize: '80px', textAlign: 'center', margin: '20px 0', color: '#10B981' }}>
                   {formatCurrency(userAccount?.balance || 0)}
                 </div>
                 <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', textAlign: 'center' }}>
-                  <div style={{ color: 'white', background: '#10B981', clipPath: 'polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%)', width: '30px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginRight: '10px' }}>
-                    ✓
-                  </div>
-                  Mức độ an toàn
+                  {(userAccount?.balance ?? 0) < (userAccount?.totalDebt ?? 0) ? (
+                    <>
+                      <div style={{ color: 'white', background: '#EF4444', clipPath: 'polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%)', width: '30px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginRight: '10px' }}>
+                        ⚠
+                      </div>
+                      <span style={{ color: '#EF4444', fontWeight: 'bold' }}>Mức độ cảnh báo</span>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ color: 'white', background: '#10B981', clipPath: 'polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%)', width: '30px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', marginRight: '10px' }}>
+                        ✓
+                      </div>
+                      Mức độ an toàn
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -279,7 +367,27 @@ export default function PaymentPage() {
 
             {/* Debt Details */}
             {unpaidTransactions.length > 0 && (
-              <div style={{ width: '841px', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ width: '841px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '100%', background: '#FEF9C3', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.2)', borderRadius: '20px', padding: '20px 24px', fontSize: '24px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
+                  <span style={{ fontWeight: 700 }}>Mức ưu đãi:</span> 
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={demoPromotionInput}
+                    onChange={(e) => setDemoPromotionInput(e.target.value)}
+                    style={{ width: '100px', padding: '10px', fontSize: '24px', border: '2px solid #64748B', borderRadius: '10px', fontFamily: "'Roboto Condensed', sans-serif", textAlign: 'center' }}
+                  />
+                  <span style={{ fontSize: '28px', fontWeight: 700, color: '#1E293B' }}>%</span>
+                  <button
+                    type="button"
+                    onClick={handleApplyDemoPromotion}
+                    style={{ background: '#CA8A04', color: '#FFFFFF', border: '2px solid #64748B', borderRadius: '12px', padding: '10px 20px', fontSize: '24px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Roboto Condensed', sans-serif" }}
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+              <div style={{ width: '100%', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 30px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ width: '100%', background: '#E0F2FE', border: '2px solid #64748B', boxShadow: '0px 5px 5px rgba(0, 0, 0, 0.25)', borderRadius: '20px', padding: '20px 40px 30px', marginBottom: '20px', fontSize: '30px' }}>
                   <div style={{ color: '#EF4444', marginBottom: '20px' }}>Chi tiết dư nợ</div>
                   {unpaidTransactions.map((transaction) => (
@@ -300,7 +408,7 @@ export default function PaymentPage() {
                     <span>{formatCurrency(unpaidTransactions.reduce((sum, t) => sum + t.originalFee, 0))}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', marginBottom: '10px', color: '#10B981' }}>
-                    <span>Ưu đãi (-40%)</span>
+                    <span>{`Ưu đãi (-${demoPromotionPercent}%)`}</span>
                     <span>-{formatCurrency(unpaidTransactions.reduce((sum, t) => sum + t.discount, 0))}</span>
                   </div>
                   <div style={{ width: '100%', height: '2px', backgroundColor: '#000000', margin: '20px 0' }}></div>
@@ -316,6 +424,7 @@ export default function PaymentPage() {
                 >
                   <span style={{ display: 'flex', alignItems: 'center', lineHeight: 0 }}>💵</span> Xác nhận thanh toán
                 </button>
+              </div>
               </div>
             )}
 
@@ -483,6 +592,47 @@ export default function PaymentPage() {
                 style={{ height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '30px', color: '#FFFFFF', background: '#10B981', cursor: 'pointer', padding: '0 40px' }}
               >
                 Trở về màn hình chính
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Balance Dialog */}
+      {showEditBalanceDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30, 41, 59, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ width: '600px', background: '#FFFFFF', border: '2px solid #64748B', boxShadow: '0px 10px 10px rgba(0, 0, 0, 0.25)', borderRadius: '25px', padding: '40px 60px' }}>
+            <div style={{ fontSize: '30px', display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '20px', color: '#0284C7' }}>
+              ✎ Chỉnh sửa số dư
+            </div>
+            <p style={{ fontSize: '24px', marginBottom: '20px', color: '#64748B' }}>Nhập số tiền mới cho số dư hiện tại</p>
+            
+            <div style={{ marginBottom: '30px' }}>
+              <label style={{ fontSize: '24px', display: 'block', marginBottom: '10px' }}>Số tiền (đ)</label>
+              <input
+                type="number"
+                value={editBalanceValue}
+                onChange={(e) => setEditBalanceValue(e.target.value)}
+                style={{ width: '100%', padding: '15px', fontSize: '24px', border: '2px solid #64748B', borderRadius: '10px', fontFamily: "'Roboto Condensed', sans-serif" }}
+                placeholder="Nhập số tiền"
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', marginTop: '40px' }}>
+              <button
+                onClick={() => {
+                  setShowEditBalanceDialog(false);
+                  setEditBalanceValue('');
+                }}
+                style={{ flex: 1, height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '24px', color: '#1E293B', background: '#E2E8F0', cursor: 'pointer', padding: '0 20px' }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleUpdateBalance}
+                style={{ flex: 1, height: '60px', border: '2px solid #64748B', boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)', borderRadius: '15px', fontFamily: "'Roboto Condensed', sans-serif", fontWeight: 700, fontSize: '24px', color: '#FFFFFF', background: '#0284C7', cursor: 'pointer', padding: '0 20px' }}
+              >
+                Lưu thay đổi
               </button>
             </div>
           </div>

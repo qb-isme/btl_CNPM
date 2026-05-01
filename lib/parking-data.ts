@@ -191,6 +191,44 @@ export const billingSessions: ParkingSession[] = [
     5000,
     'Pending_Payment',
   ),
+  new ParkingSession(
+    'txn-004',
+    4,
+    new Date('2026-04-16T09:15:00'),
+    new Date('2026-04-16T11:45:00'),
+    '30A-789456',
+    '30A-789456',
+    8000,
+    0,
+    8000,
+    'Pending_Payment',
+  ),
+  new ParkingSession(
+    'txn-005',
+    5,
+    new Date('2026-04-16T13:20:00'),
+    new Date('2026-04-16T14:50:00'),
+    '29W-654321',
+    '29W-654321',
+    6000,
+    2000,
+    4000,
+    'Pending_Payment',
+    true,
+    'Ưu đãi',
+  ),
+  new ParkingSession(
+    'txn-006',
+    6,
+    new Date('2026-04-16T15:30:00'),
+    new Date('2026-04-16T18:00:00'),
+    '38K-147258',
+    '38K-147258',
+    10000,
+    0,
+    10000,
+    'Pending_Payment',
+  ),
 ];
 
 /** <<Controller>> PaymentController (CD). */
@@ -213,6 +251,24 @@ export function syncUserAccountFromEntity() {
   userAccount.email = userAccountEntity.email;
   userAccount.balance = userAccountEntity.getCurrentBalance();
   userAccount.totalDebt = userAccountEntity.calculateTotalDebt(billingSessions);
+}
+
+/**
+ * Phần trăm giảm trên giá gốc cho phiên có ưu đãi (chưa thanh toán), dùng khi chạy thử dự án.
+ * Mặc định 40% như nhãn Ưu đãi (-40%).
+ */
+export let demoPromotionPercent = 40
+
+export function setDemoPromotionPercent(percent: number): void {
+  const p = Math.min(100, Math.max(0, Math.round(percent)))
+  demoPromotionPercent = p
+  for (const s of billingSessions) {
+    if (s.hasPromotion && s.domainStatus === 'Pending_Payment') {
+      s.discount = Math.round((s.originalFee * p) / 100)
+      s.finalFee = Math.max(0, s.originalFee - s.discount)
+    }
+  }
+  syncUserAccountFromEntity()
 }
 
 export function getAllTransactionDtos(): Transaction[] {
