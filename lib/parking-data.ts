@@ -240,44 +240,6 @@ export const incidentTickets: IncidentTicket[] = [
   },
 ];
 
-// ─── Student / Staff lookup by ID ────────────────────────────────────────────
-export interface PersonRecord {
-  id: string;
-  name: string;
-  type: 'student' | 'staff';
-  faculty?: string;
-  avatarUrl: string;
-}
-
-export const personRecords: PersonRecord[] = [
-  {
-    id: 'B20DCCN001',
-    name: 'Trần Văn Bình',
-    type: 'student',
-    faculty: 'CNTT',
-    avatarUrl: 'https://placehold.co/80x80/0284C7/ffffff?text=TVB',
-  },
-  {
-    id: 'B21DCCN099',
-    name: 'Nguyễn Minh Đức',
-    type: 'student',
-    faculty: 'CNTT',
-    avatarUrl: 'https://placehold.co/80x80/0284C7/ffffff?text=NMD',
-  },
-  {
-    id: 'CB00042',
-    name: 'Lê Thị Hương',
-    type: 'staff',
-    faculty: 'Phòng Đào tạo',
-    avatarUrl: 'https://placehold.co/80x80/475569/ffffff?text=LTH',
-  },
-];
-
-export function lookupPerson(id: string): PersonRecord | null {
-  const found = personRecords.find(p => p.id.toLowerCase() === id.trim().toLowerCase());
-  return found ?? null;
-}
-
 export const PARKING_RATE_PER_HOUR = 5000;
 export const LOST_CARD_PENALTY = 50000;
 export const GUEST_LOST_CARD_PENALTY = 100000;
