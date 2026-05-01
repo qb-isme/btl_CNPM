@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { Search, MapPin, Navigation, Map as MapIcon, User, ShieldAlert, ArrowLeft, Car, X } from 'lucide-react';
 
 // Dynamic import for GPS Map (client-side only)
@@ -132,6 +133,14 @@ export default function ParkingApp() {
         </div>
         
         <div className="flex items-center gap-6">
+          <Link
+            href="/gate-ops"
+            className="bg-[#1E293B] text-white px-4 py-2 rounded-full text-sm font-semibold shadow-sm hover:bg-[#0f172a] transition-colors flex items-center gap-2"
+            style={{ textDecoration: 'none' }}
+          >
+            <ShieldAlert size={15} />
+            Vận hành cổng
+          </Link>
           <div className="bg-white px-6 py-2 rounded-full font-mono text-xl shadow-sm">
             {currentTime}
           </div>
