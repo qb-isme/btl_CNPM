@@ -165,7 +165,7 @@ export default function EmergencyBarrier({ onToast, onBarrierChange }: Emergency
                 <TableHead className="text-xs">Loại</TableHead>
                 <TableHead className="text-xs">Thời gian</TableHead>
                 <TableHead className="text-xs">Trạng thái</TableHead>
-                <TableHead className="text-xs text-right">Thao tác</TableHead>
+                <TableHead className="text-xs text-right">Ghi chú</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
