@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Camera, CreditCard, AlertTriangle, User, RotateCcw, ShieldX } from 'lucide-react';
+import { Search, Camera, CreditCard, AlertTriangle, User, RotateCcw, ShieldX, CheckCircle2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -25,70 +25,67 @@ interface ExitExceptionProps {
 
 export default function ExitException({ onToast }: ExitExceptionProps) {
   const [searchPlate, setSearchPlate] = useState('');
-  const [foundSession, setFoundSession] = useState<ActiveSession | null>(null);
+  const [matchedSessions, setMatchedSessions] = useState<ActiveSession[]>([]);
+  const [selectedSession, setSelectedSession] = useState<ActiveSession | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [studentSearch, setStudentSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('damaged');
+  // Per-tab optional fields
+  const [mssvDamaged, setMssvDamaged] = useState('');
+  const [mssvLost, setMssvLost] = useState('');
+  const [mssvError, setMssvError] = useState('');
   const [cccdInput, setCccdInput] = useState('');
-  const [activeTab, setActiveTab] = useState('normal');
 
   const handleSearch = () => {
     const q = searchPlate.trim().toUpperCase();
     if (!q) return;
-    const session = activeSessions.find(s => s.licensePlate.toUpperCase() === q || s.licensePlate.toUpperCase().includes(q));
-    if (session) {
-      setFoundSession(session);
+    const results = activeSessions.filter(
+      s => s.licensePlate.toUpperCase().includes(q)
+    );
+    if (results.length > 0) {
+      setMatchedSessions(results);
+      setSelectedSession(null);
       setNotFound(false);
-      // Auto-select the relevant tab based on card status
-      if (session.cardStatus === 'damaged') setActiveTab('normal');
-      else if (session.cardStatus === 'lost') setActiveTab('lost');
-      else setActiveTab('normal');
     } else {
-      setFoundSession(null);
+      setMatchedSessions([]);
+      setSelectedSession(null);
       setNotFound(true);
     }
   };
 
-  const parkingFee = foundSession ? calcParkingFee(foundSession.checkInTime) : 0;
-  const lostPenalty = foundSession?.userType === 'guest' ? GUEST_LOST_CARD_PENALTY : LOST_CARD_PENALTY;
-
-  const handleMarkDamaged = () => {
-    if (!foundSession) return;
-    onToast(`Thẻ ${foundSession.cardId} đã bị đánh dấu hỏng. Thu phí ${formatVND(parkingFee)}.`, 'success');
+  const handleSelectSession = (session: ActiveSession) => {
+    setSelectedSession(session);
+    // Gợi ý tab dựa theo trạng thái thẻ
+    if (session.cardStatus === 'lost') setActiveTab('lost');
+    else setActiveTab('damaged');
   };
 
-  const handleCollectLostFee = () => {
-    if (!foundSession) return;
-    const total = parkingFee + lostPenalty;
-    onToast(`Đã thu phí + phạt mất thẻ: ${formatVND(total)}. Mở barrier.`, 'success');
-  };
+  const parkingFee = selectedSession ? calcParkingFee(selectedSession.checkInTime) : 0;
+  const lostPenalty = selectedSession?.userType === 'guest' ? GUEST_LOST_CARD_PENALTY : LOST_CARD_PENALTY;
 
-  const handleLinkBKPay = () => {
-    if (!foundSession) return;
-    onToast(`Đã liên kết BKPay cho MSSV ${foundSession.studentId}. Tổng: ${formatVND(parkingFee + lostPenalty)}.`, 'success');
-  };
+  const userTypeLabel = (s: ActiveSession) =>
+    s.userType === 'student' ? 'Sinh viên' : s.userType === 'staff' ? 'Cán bộ' : 'Khách';
 
-  const handleManualRecovery = () => {
-    if (!foundSession) return;
-    onToast(`Đã tạo phiên mới (A3). Ghi nhận vào ra thủ công cho xe ${foundSession.licensePlate}.`, 'success');
+  const cardStatusColor = (s: ActiveSession) => {
+    if (s.cardStatus === 'ok') return 'bg-[#D1FAE5] text-[#059669]';
+    if (s.cardStatus === 'damaged') return 'bg-amber-100 text-amber-700';
+    if (s.cardStatus === 'lost') return 'bg-[#FEE2E2] text-[#EF4444]';
+    return 'bg-[#E2E8F0] text-[#64748B]';
   };
-
-  const handleEmergencyExit = () => {
-    if (!cccdInput.trim()) {
-      onToast('Vui lòng nhập số CCCD.', 'error');
-      return;
-    }
-    onToast(`Mở khẩn cho CCCD ${cccdInput}. Phạt ${formatVND(ILLEGAL_EXIT_FINE)}. Đã ghi cảnh báo an ninh cao.`, 'error');
-    setCccdInput('');
+  const cardStatusLabel = (s: ActiveSession) => {
+    if (s.cardStatus === 'ok') return 'Thẻ OK';
+    if (s.cardStatus === 'damaged') return 'Thẻ hỏng';
+    if (s.cardStatus === 'lost') return 'Mất thẻ';
+    return 'Không thẻ';
   };
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Search Area */}
+      {/* --- BƯỚC 1: Tìm kiếm biển số --- */}
       <Card className="border border-[#E2E8F0]">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-bold text-[#1E293B] flex items-center gap-2">
             <Search size={16} className="text-[#0284C7]" />
-            UC 5.1 — Xử lý ngoại lệ ra cổng
+            Tra cứu biển số xe
           </CardTitle>
         </CardHeader>
         <CardContent className="flex gap-2">
@@ -106,7 +103,7 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
         </CardContent>
       </Card>
 
-      {notFound && !foundSession && (
+      {notFound && (
         <Card className="border border-[#EF4444] bg-[#FEF2F2]">
           <CardContent className="pt-4">
             <p className="text-sm text-[#EF4444] font-medium flex items-center gap-2">
@@ -116,11 +113,68 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
         </Card>
       )}
 
-      {foundSession && (
+      {/* --- BƯỚC 2: Danh sách phiên tóm gọn --- */}
+      {matchedSessions.length > 0 && !selectedSession && (
+        <Card className="border border-[#E2E8F0]">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold text-[#64748B] uppercase tracking-wide">
+              Phiên đang hoạt động ({matchedSessions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 pt-0">
+            {matchedSessions.map(session => (
+              <button
+                key={session.id}
+                onClick={() => handleSelectSession(session)}
+                className="w-full text-left rounded-xl border border-[#E2E8F0] hover:border-[#0284C7] hover:bg-[#F0F9FF] transition-all p-3 flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3">
+                  {/* Trạng thái phiên */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${session.status === 'flagged' ? 'bg-[#FEE2E2]' : 'bg-[#D1FAE5]'}`}>
+                    {session.status === 'flagged'
+                      ? <AlertTriangle size={15} className="text-[#EF4444]" />
+                      : <CheckCircle2 size={15} className="text-[#059669]" />}
+                  </div>
+                  <div>
+                    <p className="font-bold text-[#1E293B] text-sm">{session.licensePlate}</p>
+                    <p className="text-xs text-[#64748B]">{session.ownerName} · {userTypeLabel(session)} · {session.zone}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-xs text-[#64748B] flex items-center gap-1">
+                      <Clock size={11} /> {formatDuration(session.checkInTime)}
+                    </p>
+                    <p className="text-xs font-semibold text-[#10B981]">{formatVND(calcParkingFee(session.checkInTime))}</p>
+                  </div>
+                  <Badge className={`text-xs border ${cardStatusColor(session)}`}>
+                    {cardStatusLabel(session)}
+                  </Badge>
+                  {session.status === 'flagged' && (
+                    <Badge className="bg-[#FEE2E2] text-[#EF4444] border-[#EF4444]/20 text-xs">
+                      Cảnh báo
+                    </Badge>
+                  )}
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* --- BƯỚC 3: Chi tiết phiên + xử lý ngoại lệ --- */}
+      {selectedSession && (
         <>
-          {/* Session Info */}
+          {/* Nút quay lại danh sách */}
+          <button
+            onClick={() => setSelectedSession(null)}
+            className="text-sm text-[#0284C7] hover:underline flex items-center gap-1 w-fit"
+          >
+            ← Quay lại danh sách phiên
+          </button>
+
+          {/* Ảnh so sánh */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Check-in Photo */}
             <Card className="border border-[#E2E8F0]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-bold text-[#64748B] uppercase flex items-center gap-1">
@@ -129,14 +183,12 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
               </CardHeader>
               <CardContent>
                 <img
-                  src={foundSession.checkInPhoto}
+                  src={selectedSession.checkInPhoto}
                   alt="Ảnh check-in xe"
                   className="w-full rounded-lg object-cover aspect-video bg-[#1E293B]"
                 />
               </CardContent>
             </Card>
-
-            {/* Current Camera */}
             <Card className="border border-[#E2E8F0]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs font-bold text-[#64748B] uppercase flex items-center gap-1">
@@ -151,73 +203,86 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
             </Card>
           </div>
 
-          {/* Vehicle Info */}
+          {/* Thông tin phiên chi tiết */}
           <Card className="border border-[#0284C7] bg-[#F0F9FF]">
             <CardContent className="pt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
               <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
                 <span className="text-[#64748B]">Biển số:</span>
-                <span className="font-bold text-[#0284C7]">{foundSession.licensePlate}</span>
+                <span className="font-bold text-[#0284C7]">{selectedSession.licensePlate}</span>
               </div>
               <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
                 <span className="text-[#64748B]">Chủ xe:</span>
-                <span className="font-semibold">{foundSession.ownerName}</span>
+                <span className="font-semibold">{selectedSession.ownerName}</span>
               </div>
               <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
                 <span className="text-[#64748B]">Loại:</span>
                 <Badge
                   className={
-                    foundSession.userType === 'student' ? 'bg-[#D1FAE5] text-[#10B981] border-[#10B981]/30' :
-                    foundSession.userType === 'staff' ? 'bg-[#F0F9FF] text-[#0284C7] border-[#0284C7]/30' :
+                    selectedSession.userType === 'student' ? 'bg-[#D1FAE5] text-[#10B981] border-[#10B981]/30' :
+                    selectedSession.userType === 'staff' ? 'bg-[#F0F9FF] text-[#0284C7] border-[#0284C7]/30' :
                     'bg-[#E2E8F0] text-[#64748B] border-[#64748B]/30'
                   }
                 >
-                  {foundSession.userType === 'student' ? 'Sinh viên' : foundSession.userType === 'staff' ? 'Cán bộ' : 'Khách'}
+                  {userTypeLabel(selectedSession)}
                 </Badge>
               </div>
               <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
                 <span className="text-[#64748B]">MSSV/CB:</span>
-                <span className="font-semibold">{foundSession.studentId ?? '—'}</span>
+                <span className="font-semibold">{selectedSession.studentId ?? '—'}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
+                <span className="text-[#64748B]">Mã thẻ:</span>
+                <span className="font-semibold font-mono">{selectedSession.cardId ?? '—'}</span>
               </div>
               <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
                 <span className="text-[#64748B]">Khu:</span>
-                <span className="font-semibold">{foundSession.zone}</span>
+                <span className="font-semibold">{selectedSession.zone}</span>
               </div>
               <div className="flex justify-between border-b border-[#0284C7]/20 pb-1">
-                <span className="text-[#64748B]">Thời gian:</span>
-                <span className="font-semibold">{formatDuration(foundSession.checkInTime)}</span>
+                <span className="text-[#64748B]">Thời gian gửi:</span>
+                <span className="font-semibold">{formatDuration(selectedSession.checkInTime)}</span>
               </div>
-              <div className="flex justify-between pb-1 col-span-2">
+              <div className="flex justify-between pb-1">
                 <span className="text-[#64748B]">Phí gửi xe:</span>
                 <span className="font-bold text-[#10B981] text-base">{formatVND(parkingFee)}</span>
               </div>
             </CardContent>
           </Card>
 
-          {/* Exception Tabs */}
+          {/* Tabs xử lý ngoại lệ */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full grid grid-cols-4 h-auto p-1">
-              <TabsTrigger value="normal" className="text-xs py-2">Thẻ bình thường / Hỏng (A1)</TabsTrigger>
-              <TabsTrigger value="lost" className="text-xs py-2">Mất thẻ (A2)</TabsTrigger>
-              <TabsTrigger value="error" className="text-xs py-2">Lỗi hệ thống (A3)</TabsTrigger>
-              <TabsTrigger value="illegal" className="text-xs py-2">Không dữ liệu (A4)</TabsTrigger>
+              <TabsTrigger value="damaged" className="text-xs py-2">Hỏng thẻ</TabsTrigger>
+              <TabsTrigger value="lost" className="text-xs py-2">Mất thẻ</TabsTrigger>
+              <TabsTrigger value="error" className="text-xs py-2">Lỗi hệ thống</TabsTrigger>
+              <TabsTrigger value="nodata" className="text-xs py-2">Không dữ liệu</TabsTrigger>
             </TabsList>
 
-            {/* A1: Normal / Damaged */}
-            <TabsContent value="normal">
+            {/* Tab: Hỏng thẻ */}
+            <TabsContent value="damaged">
               <Card className="border border-[#E2E8F0]">
                 <CardContent className="pt-4 flex flex-col gap-3">
                   <p className="text-sm text-[#64748B]">
-                    Thẻ có dấu hiệu hư hỏng. Đánh dấu thẻ để vô hiệu hoá ID và thu phí bình thường.
+                    Thẻ có dấu hiệu hư hỏng. Đánh dấu thẻ để vô hiệu hóa ID và thu phí bình thường.
                   </p>
                   <div className="flex items-center justify-between bg-[#F8FAFC] rounded-lg p-3">
                     <span className="text-sm text-[#64748B]">Phí thu:</span>
                     <span className="font-bold text-[#10B981]">{formatVND(parkingFee)}</span>
                   </div>
+                  {/* MSSV/MSGV tuỳ chọn */}
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs text-[#64748B]">MSSV / Mã giảng viên (tuỳ chọn)</Label>
+                    <Input
+                      placeholder="Nhập MSSV hoặc mã GV..."
+                      value={mssvDamaged}
+                      onChange={e => setMssvDamaged(e.target.value)}
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       className="flex-1 border-[#EF4444] text-[#EF4444] hover:bg-[#FEF2F2]"
-                      onClick={handleMarkDamaged}
+                      onClick={() => onToast(`Thẻ ${selectedSession.cardId ?? '—'} đã bị đánh dấu hỏng.`, 'success')}
                     >
                       <CreditCard size={16} /> Đánh dấu thẻ hỏng
                     </Button>
@@ -232,59 +297,41 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
               </Card>
             </TabsContent>
 
-            {/* A2: Lost Card */}
+            {/* Tab: Mất thẻ */}
             <TabsContent value="lost">
               <Card className="border border-[#E2E8F0]">
                 <CardContent className="pt-4 flex flex-col gap-3">
                   <div className="bg-[#FEF2F2] rounded-lg p-3 text-sm text-[#EF4444] flex items-start gap-2">
                     <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-                    <span>Mất thẻ. Phạt thêm <strong>{formatVND(lostPenalty)}</strong> ({foundSession.userType === 'guest' ? 'Khách vãng lai' : 'SV/CB'}).</span>
+                    <span>
+                      Mất thẻ. Phạt thêm <strong>{formatVND(lostPenalty)}</strong>{' '}
+                      ({selectedSession.userType === 'guest' ? 'Khách vãng lai' : 'SV/CB'}).
+                    </span>
                   </div>
                   <div className="flex items-center justify-between bg-[#F8FAFC] rounded-lg p-3">
                     <span className="text-sm text-[#64748B]">Tổng thu (phí + phạt):</span>
                     <span className="font-bold text-[#EF4444]">{formatVND(parkingFee + lostPenalty)}</span>
                   </div>
-
-                  {foundSession.userType === 'guest' ? (
-                    <Button
-                      className="w-full bg-[#EF4444] hover:bg-red-700 text-white"
-                      onClick={handleCollectLostFee}
-                    >
-                      Thu phí + Phạt mất thẻ &amp; Mở cổng
-                    </Button>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <Label className="text-xs text-[#64748B]">Tìm theo MSSV/CB để liên kết BKPay:</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Nhập MSSV hoặc mã CB..."
-                          value={studentSearch}
-                          onChange={e => setStudentSearch(e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button
-                          variant="outline"
-                          className="border-[#0284C7] text-[#0284C7] hover:bg-[#F0F9FF]"
-                          onClick={() => setStudentSearch(foundSession.studentId ?? '')}
-                        >
-                          <User size={16} />
-                        </Button>
-                      </div>
-                      {studentSearch && (
-                        <Button
-                          className="w-full bg-[#0284C7] hover:bg-[#0369A1] text-white"
-                          onClick={handleLinkBKPay}
-                        >
-                          Liên kết BKPay &amp; Thu phí
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  {/* MSSV/MSGV tuỳ chọn */}
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs text-[#64748B]">MSSV / Mã giảng viên (tuỳ chọn)</Label>
+                    <Input
+                      placeholder="Nhập MSSV hoặc mã GV..."
+                      value={mssvLost}
+                      onChange={e => setMssvLost(e.target.value)}
+                    />
+                  </div>
+                  <Button
+                    className="w-full bg-[#EF4444] hover:bg-red-700 text-white"
+                    onClick={() => onToast(`Đã thu phí + phạt mất thẻ: ${formatVND(parkingFee + lostPenalty)}. Mở barrier.`, 'success')}
+                  >
+                    Thu phí &amp; Mở cổng
+                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* A3: System Error */}
+            {/* Tab: Lỗi hệ thống */}
             <TabsContent value="error">
               <Card className="border border-[#E2E8F0]">
                 <CardContent className="pt-4 flex flex-col gap-3">
@@ -295,27 +342,36 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
                     <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                     Hành động này sẽ tạo một phiên mới với thời gian vào = hiện tại và ghi log sự cố.
                   </div>
+                  {/* MSSV/MSGV tuỳ chọn */}
+                  <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs text-[#64748B]">MSSV / Mã giảng viên (tuỳ chọn)</Label>
+                    <Input
+                      placeholder="Nhập MSSV hoặc mã GV..."
+                      value={mssvError}
+                      onChange={e => setMssvError(e.target.value)}
+                    />
+                  </div>
                   <Button
                     className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                    onClick={handleManualRecovery}
+                    onClick={() => onToast(`Đã tạo phiên phục hồi thủ công cho xe ${selectedSession.licensePlate}.`, 'success')}
                   >
-                    <RotateCcw size={16} /> Phục hồi thủ công (A3)
+                    <RotateCcw size={16} /> Phục hồi thủ công
                   </Button>
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* A4: Illegal / No Data */}
-            <TabsContent value="illegal">
+            {/* Tab: Không dữ liệu */}
+            <TabsContent value="nodata">
               <Card className="border border-[#EF4444] bg-[#FEF2F2]">
                 <CardContent className="pt-4 flex flex-col gap-3">
                   <div className="flex items-center gap-2 text-[#EF4444] font-bold">
                     <ShieldX size={18} /> Không có dữ liệu — Xe có thể xâm nhập trái phép
                   </div>
                   <p className="text-sm text-[#64748B]">
-                    Nhập CCCD và chụp ảnh chân dung. Phạt <strong>{formatVND(ILLEGAL_EXIT_FINE)}</strong> và ghi cảnh báo an ninh cao.
+                    Nhập CCCD và chụp ảnh chân dung. Phạt <strong>{formatVND(ILLEGAL_EXIT_FINE)}</strong> và ghi cảnh báo an ninh.
                   </p>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <Label className="text-xs">Số CCCD *</Label>
                     <Input
                       placeholder="Nhập số CCCD (12 chữ số)..."
@@ -324,7 +380,7 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
                       maxLength={12}
                     />
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <Label className="text-xs">Ảnh chân dung</Label>
                     <div className="border-2 border-dashed border-[#EF4444]/40 rounded-lg h-24 flex items-center justify-center text-[#EF4444]/60 text-sm cursor-pointer hover:bg-[#EF4444]/5">
                       <Camera size={20} className="mr-2" /> Chụp / Tải ảnh lên
@@ -332,7 +388,11 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
                   </div>
                   <Button
                     className="w-full bg-[#EF4444] hover:bg-red-700 text-white"
-                    onClick={handleEmergencyExit}
+                    onClick={() => {
+                      if (!cccdInput.trim()) { onToast('Vui lòng nhập số CCCD.', 'error'); return; }
+                      onToast(`Mở khẩn cho CCCD ${cccdInput}. Phạt ${formatVND(ILLEGAL_EXIT_FINE)}. Đã ghi cảnh báo.`, 'error');
+                      setCccdInput('');
+                    }}
                   >
                     <ShieldX size={16} /> Mở khẩn cấp + Ghi cảnh báo
                   </Button>

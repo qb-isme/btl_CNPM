@@ -38,8 +38,7 @@ export default function SecurityAlertPanel({ onToast }: SecurityAlertPanelProps)
         return (
           <div
             key={alert.id}
-            className="rounded-xl border-2 border-[#EF4444] bg-[#FEF2F2] p-4 flex flex-col gap-3 animate-pulse"
-            style={{ animationDuration: '2s' }}
+            className="rounded-xl border-2 border-[#EF4444] bg-[#FEF2F2] p-4 flex flex-col gap-3"
           >
             {/* Alert Header */}
             <div className="flex items-center justify-between">
@@ -49,13 +48,13 @@ export default function SecurityAlertPanel({ onToast }: SecurityAlertPanelProps)
                   {alert.alertType === 'plate_mismatch' ? 'Biển số không khớp' : 'Phương tiện nằm trong danh sách đen'}
                 </span>
               </div>
-              <Badge className="bg-[#EF4444] text-white border-transparent text-xs animate-none">
+              <Badge className="bg-[#EF4444] text-white border-transparent text-xs animate-pulse">
                 CẢNH BÁO CAO
               </Badge>
             </div>
 
             {/* Alert Details */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm animate-none">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-[#64748B]">Biển số:</span>
                 <span className="font-bold text-[#1E293B]">{alert.licensePlate}</span>
@@ -78,13 +77,13 @@ export default function SecurityAlertPanel({ onToast }: SecurityAlertPanelProps)
               )}
             </div>
 
-            <p className="text-xs text-[#64748B] bg-white/60 rounded-lg p-2 border border-[#EF4444]/20 animate-none">
+            <p className="text-xs text-[#64748B] bg-white/60 rounded-lg p-2 border border-[#EF4444]/20">
               {alert.notes}
             </p>
 
             {/* Photo comparison */}
             {session && (
-              <div className="grid grid-cols-2 gap-3 animate-none">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-[#64748B] font-medium">Ảnh check-in</span>
                   <img
@@ -103,7 +102,7 @@ export default function SecurityAlertPanel({ onToast }: SecurityAlertPanelProps)
             )}
 
             {/* Action Buttons */}
-            <div className="flex gap-2 pt-1 animate-none">
+            <div className="flex gap-2 pt-1">
               <Button
                 className="flex-1 bg-[#10B981] hover:bg-[#059669] text-white"
                 onClick={() => resolveAlert(alert.id, 'confirm')}

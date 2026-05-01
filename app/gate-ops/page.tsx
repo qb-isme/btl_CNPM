@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { User, ShieldAlert, Siren, ArrowLeft, Clock, Wifi } from 'lucide-react';
-import Link from 'next/link';
+import { User, ShieldAlert, Siren, Clock, Wifi } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import ExitException from '@/components/gate-ops/ExitException';
 import SecurityAlertPanel from '@/components/gate-ops/SecurityAlertPanel';
@@ -44,38 +43,34 @@ export default function GateOpsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1E293B] flex flex-col">
-      {/* Header */}
-      <header className="bg-[#1E293B] px-6 py-3 flex items-center justify-between shadow-lg shrink-0">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="flex items-center gap-1.5 text-[#94A3B8] hover:text-white text-sm font-medium transition-colors"
-          >
-            <ArrowLeft size={16} /> Tổng quan
-          </Link>
-          <div className="w-px h-5 bg-[#64748B]/50" />
+      {/* Header — màu xám giống trang quản lý bãi xe */}
+      <header className="bg-[#475569] px-6 py-3 flex items-center justify-between shadow-md shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+            <ShieldAlert size={20} className="text-white" />
+          </div>
           <div>
             <h1 className="text-white font-bold text-lg leading-tight">Vận hành cổng</h1>
-            <p className="text-[#94A3B8] text-xs uppercase tracking-widest">Module 5 — Gate Operations &amp; Monitoring</p>
+            <p className="text-white/60 text-xs uppercase tracking-widest">Hệ thống quản lý bãi xe</p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 bg-[#D1FAE5]/10 border border-[#10B981]/30 px-3 py-1.5 rounded-full">
-            <Wifi size={13} className="text-[#10B981]" />
-            <span className="text-[#10B981] text-xs font-semibold">Online</span>
+          <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full">
+            <Wifi size={13} className="text-[#4ADE80]" />
+            <span className="text-[#4ADE80] text-xs font-semibold">Online</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full font-mono text-white text-sm">
-            <Clock size={13} className="text-[#94A3B8]" />
+          <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full font-mono text-white text-sm">
+            <Clock size={13} className="text-white/60" />
             {currentTime}
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#0284C7] rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
               <User size={16} className="text-white" />
             </div>
             <div className="flex flex-col">
               <span className="text-white text-xs font-semibold leading-tight">Bảo vệ A</span>
-              <span className="text-[#94A3B8] text-[10px]">Cổng chính</span>
+              <span className="text-white/50 text-[10px]">Cổng chính</span>
             </div>
           </div>
         </div>
@@ -120,21 +115,20 @@ export default function GateOpsPage() {
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {/* Active Alert Banner */}
+          {/* Active Alert Banner — chỉ nhấp nháy phần chữ "Cảnh báo cao", không nhấp nháy toàn khung */}
           {hasActiveAlerts && activePanel !== 'security' && (
             <div
-              className="mb-4 rounded-xl border-2 border-[#EF4444] bg-[#FEF2F2] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 transition-colors animate-pulse"
-              style={{ animationDuration: '2s' }}
+              className="mb-4 rounded-xl border-2 border-[#EF4444] bg-[#FEF2F2] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 transition-colors"
               onClick={() => setActivePanel('security')}
             >
-              <div className="flex items-center gap-2 animate-none">
+              <div className="flex items-center gap-2">
                 <ShieldAlert size={18} className="text-[#EF4444]" />
                 <span className="text-sm font-bold text-[#EF4444]">
                   Cảnh báo an ninh đang hoạt động — Nhấn để xem
                 </span>
               </div>
-              <Badge className="bg-[#EF4444] text-white border-transparent text-xs animate-none">
-                {securityAlerts.filter(a => !a.resolved).length} cảnh báo
+              <Badge className="bg-[#EF4444] text-white border-transparent text-xs animate-pulse">
+                CẢNH BÁO CAO
               </Badge>
             </div>
           )}

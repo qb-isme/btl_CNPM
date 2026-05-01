@@ -125,7 +125,7 @@ export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
       {/* Quick Action Panel */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold text-[#1E293B] uppercase tracking-wide">UC 5.3 — Mở barrier khẩn cấp</h3>
+          <h3 className="text-sm font-bold text-[#1E293B] uppercase tracking-wide">Mở barrier khẩn cấp</h3>
           {pendingCount > 0 && (
             <Badge className="bg-[#EF4444] text-white border-transparent animate-pulse">
               {pendingCount} chờ giải trình
@@ -162,7 +162,6 @@ export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
               <TableRow>
                 <TableHead className="text-xs">Mã phiếu</TableHead>
                 <TableHead className="text-xs">Loại</TableHead>
-                <TableHead className="text-xs">Biển số</TableHead>
                 <TableHead className="text-xs">Thời gian</TableHead>
                 <TableHead className="text-xs">Trạng thái</TableHead>
                 <TableHead className="text-xs text-right">Thao tác</TableHead>
@@ -171,7 +170,7 @@ export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
             <TableBody>
               {tickets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-[#94A3B8] text-sm py-6">
+                  <TableCell colSpan={5} className="text-center text-[#94A3B8] text-sm py-6">
                     Chưa có phiếu sự cố nào.
                   </TableCell>
                 </TableRow>
@@ -180,7 +179,6 @@ export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
                   <TableRow key={ticket.id} className={ticket.status === 'pending' ? 'bg-amber-50/50' : ''}>
                     <TableCell className="text-xs font-mono text-[#64748B]">#{ticket.id.slice(-6)}</TableCell>
                     <TableCell className="text-xs font-medium">{EMERGENCY_LABELS[ticket.emergencyType]}</TableCell>
-                    <TableCell className="text-xs">{ticket.licensePlate ?? '—'}</TableCell>
                     <TableCell className="text-xs text-[#64748B]">{ticket.createdAt.toLocaleTimeString('vi-VN')}</TableCell>
                     <TableCell>
                       {ticket.status === 'pending' ? (
@@ -232,7 +230,7 @@ export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
 
       {/* Confirmation Dialog */}
       <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white text-[#1E293B]">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-[#EF4444]">
               <Siren size={20} />
