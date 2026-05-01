@@ -214,7 +214,7 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
       userType: 'student' as const,
       studentId: 'B21DCCN045',
       faculty: 'CNTT',
-      checkInTime: '1 giờ trước',
+      checkInTime: '1h',
       zone: 'Khu B',
     };
     setRecoveryCardId(mockCardData.cardId);
@@ -766,7 +766,7 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                     <div className="flex gap-2">
                       <span className="text-amber-600">Thời gian vào:</span>
-                      <span className="font-semibold text-amber-800">{recoveryCardInfo.checkInTime || '1 giờ trước'}</span>
+                      <span className="font-semibold text-amber-800">{recoveryCardInfo.checkInTime || '1h'}</span>
                     </div>
                     <div className="flex gap-2">
                       <span className="text-amber-600">Khu gửi:</span>
