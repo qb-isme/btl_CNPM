@@ -21,6 +21,7 @@ export default function GateOpsPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [activePanel, setActivePanel] = useState<ActivePanel>('exception');
   const [hasActiveAlerts] = useState(securityAlerts.filter(a => !a.resolved).length > 0);
+  const [barrierOpen, setBarrierOpen] = useState(false);
 
   useEffect(() => {
     const update = () => setCurrentTime(new Date().toLocaleTimeString('vi-VN', { hour12: false }));
@@ -98,8 +99,10 @@ export default function GateOpsPage() {
               <p className="text-[10px] text-[#94A3B8] font-medium uppercase tracking-wide mb-1">Cổng hiện tại</p>
               <p className="text-sm font-bold text-[#1E293B]">Cổng chính</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
-                <span className="text-xs text-[#10B981]">Barrier sẵn sàng</span>
+                <div className={`w-1.5 h-1.5 rounded-full ${barrierOpen ? 'bg-[#10B981]' : 'bg-[#64748B]'} animate-pulse`} />
+                <span className={`text-xs font-semibold ${barrierOpen ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                  {barrierOpen ? 'Barrier đang mở' : 'Barrier đang đóng'}
+                </span>
               </div>
             </div>
           </div>
@@ -140,9 +143,9 @@ export default function GateOpsPage() {
           </div>
 
           {/* Panels */}
-          {activePanel === 'exception' && <ExitException onToast={addToast} />}
-          {activePanel === 'security' && <SecurityAlertPanel onToast={addToast} />}
-          {activePanel === 'emergency' && <EmergencyBarrier onToast={addToast} />}
+          {activePanel === 'exception' && <ExitException onToast={addToast} onBarrierChange={setBarrierOpen} />}
+          {activePanel === 'security' && <SecurityAlertPanel onToast={addToast} onBarrierChange={setBarrierOpen} />}
+          {activePanel === 'emergency' && <EmergencyBarrier onToast={addToast} onBarrierChange={setBarrierOpen} />}
         </main>
       </div>
 

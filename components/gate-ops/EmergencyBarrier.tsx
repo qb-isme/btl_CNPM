@@ -28,6 +28,7 @@ import { incidentTickets, type EmergencyType, type IncidentTicket } from '@/lib/
 
 interface EmergencyBarrierProps {
   onToast: (message: string, type: 'success' | 'error') => void;
+  onBarrierChange: (open: boolean) => void;
 }
 
 const EMERGENCY_ACTIONS: { type: EmergencyType; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[] = [
@@ -72,7 +73,7 @@ const EMERGENCY_LABELS: Record<EmergencyType, string> = {
   hardware: 'Lỗi phần cứng',
 };
 
-export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
+export default function EmergencyBarrier({ onToast, onBarrierChange }: EmergencyBarrierProps) {
   const [selectedAction, setSelectedAction] = useState<EmergencyType | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [licensePlate, setLicensePlate] = useState('');
@@ -99,6 +100,7 @@ export default function EmergencyBarrier({ onToast }: EmergencyBarrierProps) {
     setTickets(prev => [ticket, ...prev]);
     setDialogOpen(false);
     setSelectedAction(null);
+    onBarrierChange(true);
     onToast(`Barrier đã mở cho ${EMERGENCY_LABELS[selectedAction]}. Phiếu sự cố #${ticket.id.slice(-6)} đang chờ giải trình.`, 'success');
   };
 

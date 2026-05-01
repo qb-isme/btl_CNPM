@@ -8,16 +8,19 @@ import { securityAlerts, activeSessions, type SecurityAlert } from '@/lib/parkin
 
 interface SecurityAlertPanelProps {
   onToast: (message: string, type: 'success' | 'error') => void;
+  onBarrierChange: (open: boolean) => void;
 }
 
-export default function SecurityAlertPanel({ onToast }: SecurityAlertPanelProps) {
+export default function SecurityAlertPanel({ onToast, onBarrierChange }: SecurityAlertPanelProps) {
   const [alerts, setAlerts] = useState<SecurityAlert[]>(securityAlerts.filter(a => !a.resolved));
 
   const resolveAlert = (alertId: string, action: 'confirm' | 'lock') => {
     setAlerts(prev => prev.filter(a => a.id !== alertId));
     if (action === 'confirm') {
+      onBarrierChange(true);
       onToast('Ngoại lệ được xác nhận hợp lệ. Mở barrier.', 'success');
     } else {
+      onBarrierChange(false);
       onToast('Đã khoá phiên & gửi báo cáo gian lận tới Ban an ninh.', 'error');
     }
   };

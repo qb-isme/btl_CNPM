@@ -22,6 +22,7 @@ import {
 
 interface ExitExceptionProps {
   onToast: (message: string, type: 'success' | 'error') => void;
+  onBarrierChange: (open: boolean) => void;
 }
 
 // Danh sách phiên đang hoạt động (có thể bị xoá sau khi đóng)
@@ -89,7 +90,7 @@ function PersonInfo({ session }: { session: ActiveSession }) {
   );
 }
 
-export default function ExitException({ onToast }: ExitExceptionProps) {
+export default function ExitException({ onToast, onBarrierChange }: ExitExceptionProps) {
   const [searchPlate, setSearchPlate] = useState('');
   const [matchedSessions, setMatchedSessions] = useState<ActiveSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<ActiveSession | null>(null);
@@ -119,13 +120,14 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
     else setActiveTab('damaged');
   };
 
-  // Đóng phiên: xoá khỏi pool, quay về danh sách, hiện banner xanh
+  // Đóng phiên: xoá khỏi pool, quay về danh sách, hiện banner xanh, báo mở barrier
   const handleCloseSession = (sessionId: string, toastMsg: string, toastType: 'success' | 'error') => {
     sessionPool = sessionPool.filter(s => s.id !== sessionId);
     setClosedSessionId(sessionId);
     setSelectedSession(null);
     setMatchedSessions(prev => prev.filter(s => s.id !== sessionId));
     onToast(toastMsg, toastType);
+    onBarrierChange(true);
   };
 
   const parkingFee = selectedSession ? calcParkingFee(selectedSession.checkInTime) : 0;
@@ -141,10 +143,10 @@ export default function ExitException({ onToast }: ExitExceptionProps) {
     return 'bg-[#E2E8F0] text-[#64748B] border-[#94A3B8]/20';
   };
   const cardStatusLabel = (s: ActiveSession) => {
-    if (s.cardStatus === 'ok') return 'The OK';
-    if (s.cardStatus === 'damaged') return 'The hong';
-    if (s.cardStatus === 'lost') return 'Mat the';
-    return 'Khong the';
+    if (s.cardStatus === 'ok') return 'Thẻ OK';
+    if (s.cardStatus === 'damaged') return 'Thẻ hỏng';
+    if (s.cardStatus === 'lost') return 'Mất thẻ';
+    return 'Không thẻ';
   };
 
   const remainingAfterClose = matchedSessions.filter(s => s.id !== closedSessionId);
