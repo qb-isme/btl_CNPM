@@ -109,14 +109,20 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
   const [showEmergencyExitDialog, setShowEmergencyExitDialog] = useState(false);
   const [emergencyCccd, setEmergencyCccd] = useState('');
   const [emergencyPortrait, setEmergencyPortrait] = useState<string | null>(null);
-  const [emergencyVehiclePhoto, setEmergencyVehiclePhoto] = useState<string | null>(null);
   const portraitInputRef = useRef<HTMLInputElement>(null);
-  const vehicleInputRef = useRef<HTMLInputElement>(null);
 
   // State cho dialog khôi phục phiên thủ công
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [recoveryCardId, setRecoveryCardId] = useState('');
-  const [recoveryPlate, setRecoveryPlate] = useState('');
+  const [recoveryCardScanned, setRecoveryCardScanned] = useState(false);
+  // Thông tin tự động từ thẻ
+  const [recoveryCardInfo, setRecoveryCardInfo] = useState<{
+    cardId: string;
+    ownerName: string;
+    userType: 'student' | 'staff' | 'guest';
+    studentId?: string;
+    faculty?: string;
+  } | null>(null);
 
   const handleSearch = () => {
     const q = searchPlate.trim().toUpperCase();
@@ -136,8 +142,8 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
 
   const handleSelectSession = (session: ActiveSession) => {
     setSelectedSession(session);
-    if (session.cardStatus === 'lost') setActiveTab('lost');
-    else setActiveTab('damaged');
+    // Mặc định tab "Hỏng thẻ" - nhân viên bảo vệ sẽ quyết định
+    setActiveTab('damaged');
   };
 
   // Đóng phiên: xoá khỏi pool, quay về danh sách, hiện banner xanh, báo mở barrier
@@ -156,17 +162,12 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
   const userTypeLabel = (s: ActiveSession) =>
     s.userType === 'student' ? 'Sinh viên' : s.userType === 'staff' ? 'Cán bộ' : 'Khách';
 
-  const cardStatusStyle = (s: ActiveSession) => {
-    if (s.cardStatus === 'ok') return 'bg-[#D1FAE5] text-[#059669] border-[#059669]/20';
-    if (s.cardStatus === 'damaged') return 'bg-amber-100 text-amber-700 border-amber-200';
-    if (s.cardStatus === 'lost') return 'bg-[#FEE2E2] text-[#EF4444] border-[#EF4444]/20';
-    return 'bg-[#E2E8F0] text-[#64748B] border-[#94A3B8]/20';
+  // Chỉ hiển thị "Đang gửi" - trạng thái thẻ do nhân viên bảo vệ quyết định khi xử lý
+  const cardStatusStyle = () => {
+    return 'bg-[#D1FAE5] text-[#059669] border-[#059669]/20';
   };
-  const cardStatusLabel = (s: ActiveSession) => {
-    if (s.cardStatus === 'ok') return 'Đang gửi';
-    if (s.cardStatus === 'damaged') return 'Thẻ hỏng';
-    if (s.cardStatus === 'lost') return 'Mất thẻ';
-    return 'Không thẻ';
+  const cardStatusLabel = () => {
+    return 'Đang gửi';
   };
 
   const remainingAfterClose = matchedSessions.filter(s => s.id !== closedSessionId);
@@ -193,35 +194,54 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
       onToast('Vui lòng chụp ảnh chân dung.', 'error');
       return;
     }
-    if (!emergencyVehiclePhoto) {
-      onToast('Vui lòng chụp ảnh xe tại cổng.', 'error');
-      return;
-    }
+    // Ảnh xe được chụp tự động từ camera
     // Đóng dialog và thông báo thành công
     setShowEmergencyExitDialog(false);
     setEmergencyCccd('');
     setEmergencyPortrait(null);
-    setEmergencyVehiclePhoto(null);
     onToast(`Đã xuất bến khẩn cấp cho xe ${searchPlate || 'không xác định'}. CCCD: ${emergencyCccd}.`, 'success');
     onBarrierChange(true);
   };
 
+  // Giả lập quét thẻ - trong thực tế sẽ gọi API đọc thẻ
+  const handleScanCard = () => {
+    // Giả lập quét thẻ và lấy thông tin
+    const mockCardData = {
+      cardId: 'CARD-0099',
+      ownerName: 'Nguyễn Văn An',
+      userType: 'student' as const,
+      studentId: 'B21DCCN045',
+      faculty: 'CNTT',
+    };
+    setRecoveryCardId(mockCardData.cardId);
+    setRecoveryCardInfo(mockCardData);
+    setRecoveryCardScanned(true);
+    onToast('Đã quét thẻ thành công!', 'success');
+  };
+
   // Xử lý khôi phục phiên thủ công
   const handleManualRecovery = () => {
-    if (!recoveryCardId.trim()) {
-      onToast('Vui lòng nhập mã thẻ.', 'error');
-      return;
-    }
-    if (!recoveryPlate.trim()) {
-      onToast('Vui lòng nhập biển số xe.', 'error');
+    if (!recoveryCardScanned || !recoveryCardInfo) {
+      onToast('Vui lòng quét thẻ trước.', 'error');
       return;
     }
     // Đóng dialog và thông báo thành công
     setShowRecoveryDialog(false);
     setRecoveryCardId('');
-    setRecoveryPlate('');
-    onToast(`Đã tạo phiên khôi phục thủ công cho thẻ ${recoveryCardId}, xe ${recoveryPlate}.`, 'success');
+    setRecoveryCardScanned(false);
+    setRecoveryCardInfo(null);
+    onToast(`Đã tạo phiên khôi phục thủ công cho thẻ ${recoveryCardInfo.cardId}, chủ xe ${recoveryCardInfo.ownerName}.`, 'success');
     onBarrierChange(true);
+  };
+
+  // Reset khi đóng dialog khôi phục
+  const handleCloseRecoveryDialog = (open: boolean) => {
+    setShowRecoveryDialog(open);
+    if (!open) {
+      setRecoveryCardId('');
+      setRecoveryCardScanned(false);
+      setRecoveryCardInfo(null);
+    }
   };
 
   // Kiểm tra có nên hiện nút khẩn cấp không
@@ -539,18 +559,34 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
 
       {/* Dialog Xuất bến khẩn cấp */}
       <Dialog open={showEmergencyExitDialog} onOpenChange={setShowEmergencyExitDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-[#EF4444]">
               <Siren size={20} />
               Xuất bến khẩn cấp
             </DialogTitle>
             <DialogDescription>
-              Dành cho xe không có phiên trong hệ thống. Yêu cầu CCCD, ảnh chân dung và ảnh xe tại cổng.
+              Dành cho xe không có phiên trong hệ thống. Yêu cầu CCCD và ảnh chân dung người gửi xe.
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-col gap-4 mt-2">
+            {/* Ảnh xe tại cổng - tự động từ camera */}
+            <div>
+              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                Ảnh xe tại cổng (tự động)
+              </label>
+              <div className="w-full h-32 rounded-lg bg-[#1E293B] flex items-center justify-center border border-[#E2E8F0] relative overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[#94A3B8] text-xs">Camera đang phát...</span>
+                </div>
+                <div className="absolute bottom-2 right-2 bg-[#10B981] text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                  <Camera size={10} /> Live
+                </div>
+              </div>
+              <p className="text-xs text-[#64748B] mt-1">Hình ảnh sẽ được chụp tự động khi xác nhận</p>
+            </div>
+
             {/* Số CCCD */}
             <div>
               <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
@@ -560,13 +596,14 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
                 placeholder="Nhập số CCCD của chủ xe..."
                 value={emergencyCccd}
                 onChange={e => setEmergencyCccd(e.target.value)}
+                className="bg-white"
               />
             </div>
 
             {/* Upload ảnh chân dung */}
             <div>
               <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
-                Ảnh chân dung chủ xe <span className="text-[#EF4444]">*</span>
+                Ảnh chân dung người gửi xe <span className="text-[#EF4444]">*</span>
               </label>
               <input
                 type="file"
@@ -593,7 +630,7 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
               ) : (
                 <Button
                   variant="outline"
-                  className="w-full h-24 border-dashed border-[#94A3B8] text-[#64748B] hover:bg-[#F8FAFC]"
+                  className="w-full h-24 border-dashed border-[#94A3B8] text-[#64748B] hover:bg-[#F8FAFC] bg-white"
                   onClick={() => portraitInputRef.current?.click()}
                 >
                   <div className="flex flex-col items-center gap-1">
@@ -604,52 +641,11 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
               )}
             </div>
 
-            {/* Upload ảnh xe tại cổng */}
-            <div>
-              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
-                Ảnh xe tại cổng <span className="text-[#EF4444]">*</span>
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                ref={vehicleInputRef}
-                className="hidden"
-                onChange={e => handleImageUpload(e, setEmergencyVehiclePhoto)}
-              />
-              {emergencyVehiclePhoto ? (
-                <div className="relative">
-                  <img
-                    src={emergencyVehiclePhoto}
-                    alt="Ảnh xe"
-                    className="w-full h-40 object-cover rounded-lg border border-[#E2E8F0]"
-                  />
-                  <button
-                    className="absolute top-2 right-2 bg-[#EF4444] text-white p-1 rounded-full hover:bg-red-600"
-                    onClick={() => setEmergencyVehiclePhoto(null)}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  className="w-full h-24 border-dashed border-[#94A3B8] text-[#64748B] hover:bg-[#F8FAFC]"
-                  onClick={() => vehicleInputRef.current?.click()}
-                >
-                  <div className="flex flex-col items-center gap-1">
-                    <Camera size={20} />
-                    <span className="text-xs">Chụp / Tải lên ảnh xe tại cổng</span>
-                  </div>
-                </Button>
-              )}
-            </div>
-
             {/* Nút xác nhận */}
             <div className="flex gap-2 mt-2">
               <Button
                 variant="outline"
-                className="flex-1"
+                className="flex-1 bg-white"
                 onClick={() => setShowEmergencyExitDialog(false)}
               >
                 Hủy
@@ -667,8 +663,8 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
       </Dialog>
 
       {/* Dialog Khôi phục phiên thủ công */}
-      <Dialog open={showRecoveryDialog} onOpenChange={setShowRecoveryDialog}>
-        <DialogContent className="max-w-md">
+      <Dialog open={showRecoveryDialog} onOpenChange={handleCloseRecoveryDialog}>
+        <DialogContent className="max-w-lg bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600">
               <RefreshCw size={20} />
@@ -680,29 +676,106 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
           </DialogHeader>
 
           <div className="flex flex-col gap-4 mt-2">
-            {/* Mã thẻ */}
+            {/* Quét thẻ */}
             <div>
               <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
-                Mã thẻ xe <span className="text-[#EF4444]">*</span>
+                Quét thẻ xe <span className="text-[#EF4444]">*</span>
               </label>
-              <Input
-                placeholder="Nhập mã thẻ xe (quét hoặc nhập tay)..."
-                value={recoveryCardId}
-                onChange={e => setRecoveryCardId(e.target.value)}
-              />
+              {!recoveryCardScanned ? (
+                <Button
+                  variant="outline"
+                  className="w-full h-16 border-dashed border-amber-400 text-amber-700 hover:bg-amber-50 bg-white"
+                  onClick={handleScanCard}
+                >
+                  <div className="flex items-center gap-2">
+                    <CreditCard size={20} />
+                    <span>Nhấn để quét thẻ xe</span>
+                  </div>
+                </Button>
+              ) : (
+                <div className="flex items-center gap-3 bg-[#D1FAE5] border border-[#10B981]/30 rounded-lg px-3 py-2">
+                  <CreditCard size={20} className="text-[#10B981]" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#1E293B]">Mã thẻ: {recoveryCardId}</p>
+                    <p className="text-xs text-[#10B981]">Đã quét thành công</p>
+                  </div>
+                  <CheckCircle2 size={16} className="text-[#10B981] ml-auto" />
+                </div>
+              )}
             </div>
 
-            {/* Biển số xe */}
-            <div>
-              <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
-                Biển số xe <span className="text-[#EF4444]">*</span>
-              </label>
-              <Input
-                placeholder="Nhập biển số xe..."
-                value={recoveryPlate}
-                onChange={e => setRecoveryPlate(e.target.value)}
-              />
-            </div>
+            {/* Thông tin từ thẻ - hiện sau khi quét */}
+            {recoveryCardScanned && recoveryCardInfo && (
+              <>
+                {/* Thông tin chủ xe */}
+                <div className="bg-[#F0F9FF] border border-[#0284C7]/30 rounded-lg p-3">
+                  <p className="text-xs font-medium text-[#64748B] uppercase tracking-wide mb-2">
+                    Thông tin từ thẻ
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-[#64748B]">Chủ xe:</span>
+                      <span className="font-semibold text-[#1E293B]">{recoveryCardInfo.ownerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#64748B]">Loại:</span>
+                      <span className="font-semibold text-[#0284C7]">
+                        {recoveryCardInfo.userType === 'student' ? 'Sinh viên' : recoveryCardInfo.userType === 'staff' ? 'Cán bộ' : 'Khách'}
+                      </span>
+                    </div>
+                    {recoveryCardInfo.studentId && (
+                      <div className="flex justify-between">
+                        <span className="text-[#64748B]">MSSV/Mã CB:</span>
+                        <span className="font-mono text-[#1E293B]">{recoveryCardInfo.studentId}</span>
+                      </div>
+                    )}
+                    {recoveryCardInfo.faculty && (
+                      <div className="flex justify-between">
+                        <span className="text-[#64748B]">Khoa/Phòng:</span>
+                        <span className="text-[#1E293B]">{recoveryCardInfo.faculty}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ảnh xe tại cổng - tự động từ camera */}
+                <div>
+                  <label className="text-sm font-medium text-[#1E293B] block mb-1.5">
+                    Ảnh xe tại cổng (tự động)
+                  </label>
+                  <div className="w-full h-32 rounded-lg bg-[#1E293B] flex items-center justify-center border border-[#E2E8F0] relative overflow-hidden">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[#94A3B8] text-xs">Camera đang phát...</span>
+                    </div>
+                    <div className="absolute bottom-2 right-2 bg-[#10B981] text-white text-xs px-2 py-0.5 rounded flex items-center gap-1">
+                      <Camera size={10} /> Live
+                    </div>
+                  </div>
+                  <p className="text-xs text-[#64748B] mt-1">Hình ảnh sẽ được chụp tự động khi xác nhận</p>
+                </div>
+
+                {/* Thông tin phiên khôi phục */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-2">
+                    Thông tin phiên khôi phục
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-amber-600">Thời gian vào:</span>
+                      <span className="font-semibold text-amber-800">Hiện tại</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-amber-600">Khu gửi:</span>
+                      <span className="font-semibold text-amber-800">Cổng ra</span>
+                    </div>
+                    <div className="flex justify-between col-span-2">
+                      <span className="text-amber-600">Ghi chú:</span>
+                      <span className="font-semibold text-amber-800">Phiên khôi phục do lỗi hệ thống</span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700 flex items-start gap-2">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
@@ -715,14 +788,15 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
             <div className="flex gap-2 mt-2">
               <Button
                 variant="outline"
-                className="flex-1"
-                onClick={() => setShowRecoveryDialog(false)}
+                className="flex-1 bg-white"
+                onClick={() => handleCloseRecoveryDialog(false)}
               >
                 Hủy
               </Button>
               <Button
-                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white disabled:opacity-50"
                 onClick={handleManualRecovery}
+                disabled={!recoveryCardScanned}
               >
                 <RefreshCw size={16} />
                 Khôi phục &amp; Mở cổng

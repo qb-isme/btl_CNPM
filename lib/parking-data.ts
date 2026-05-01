@@ -186,7 +186,7 @@ export const activeSessions: ActiveSession[] = [
     zone: 'Khu Cán bộ',
     slotId: 'zone-e-slot-7',
     status: 'active',
-    cardStatus: 'damaged',
+    cardStatus: 'ok',
   },
   {
     id: 'sess-003',
