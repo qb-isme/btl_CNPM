@@ -143,7 +143,7 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
     return 'bg-[#E2E8F0] text-[#64748B] border-[#94A3B8]/20';
   };
   const cardStatusLabel = (s: ActiveSession) => {
-    if (s.cardStatus === 'ok') return 'Thẻ OK';
+    if (s.cardStatus === 'ok') return 'Đang gửi';
     if (s.cardStatus === 'damaged') return 'Thẻ hỏng';
     if (s.cardStatus === 'lost') return 'Mất thẻ';
     return 'Không thẻ';

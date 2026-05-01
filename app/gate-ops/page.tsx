@@ -20,8 +20,7 @@ export default function GateOpsPage() {
   const [currentTime, setCurrentTime] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [activePanel, setActivePanel] = useState<ActivePanel>('exception');
-  const [hasActiveAlerts] = useState(securityAlerts.filter(a => !a.resolved).length > 0);
-  const [barrierOpen, setBarrierOpen] = useState(false);
+  const [activeAlertCount, setActiveAlertCount] = useState(securityAlerts.filter(a => !a.resolved).length);
 
   useEffect(() => {
     const update = () => setCurrentTime(new Date().toLocaleTimeString('vi-VN', { hour12: false }));
@@ -38,7 +37,7 @@ export default function GateOpsPage() {
 
   const NAV_ITEMS: { key: ActivePanel; label: string; icon: React.ReactNode; alert?: boolean }[] = [
     { key: 'exception', label: 'Xử lý ngoại lệ ra cổng', icon: <ShieldAlert size={18} /> },
-    { key: 'security', label: 'Cảnh báo an ninh', icon: <ShieldAlert size={18} />, alert: hasActiveAlerts },
+    { key: 'security', label: 'Cảnh báo an ninh', icon: <ShieldAlert size={18} />, alert: activeAlertCount > 0 },
     { key: 'emergency', label: 'Mở barrier khẩn cấp', icon: <Siren size={18} /> },
   ];
 
@@ -99,10 +98,8 @@ export default function GateOpsPage() {
               <p className="text-[10px] text-[#94A3B8] font-medium uppercase tracking-wide mb-1">Cổng hiện tại</p>
               <p className="text-sm font-bold text-[#1E293B]">Cổng chính</p>
               <div className="flex items-center gap-1.5 mt-1">
-                <div className={`w-1.5 h-1.5 rounded-full ${barrierOpen ? 'bg-[#10B981]' : 'bg-[#64748B]'} animate-pulse`} />
-                <span className={`text-xs font-semibold ${barrierOpen ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                  {barrierOpen ? 'Barrier đang mở' : 'Barrier đang đóng'}
-                </span>
+                <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                <span className="text-xs font-semibold text-[#10B981]">Barrier sẵn sàng</span>
               </div>
             </div>
           </div>
@@ -111,7 +108,7 @@ export default function GateOpsPage() {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-6">
           {/* Active Alert Banner */}
-          {hasActiveAlerts && activePanel !== 'security' && (
+          {activeAlertCount > 0 && activePanel !== 'security' && (
             <div
               className="mb-4 rounded-xl border-2 border-[#EF4444] bg-[#FEF2F2] px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-red-50 transition-colors"
               onClick={() => setActivePanel('security')}
@@ -143,9 +140,9 @@ export default function GateOpsPage() {
           </div>
 
           {/* Panels */}
-          {activePanel === 'exception' && <ExitException onToast={addToast} onBarrierChange={setBarrierOpen} />}
-          {activePanel === 'security' && <SecurityAlertPanel onToast={addToast} onBarrierChange={setBarrierOpen} />}
-          {activePanel === 'emergency' && <EmergencyBarrier onToast={addToast} onBarrierChange={setBarrierOpen} />}
+          {activePanel === 'exception' && <ExitException onToast={addToast} onBarrierChange={() => {}} />}
+          {activePanel === 'security' && <SecurityAlertPanel onToast={addToast} onAlertResolved={() => setActiveAlertCount(0)} />}
+          {activePanel === 'emergency' && <EmergencyBarrier onToast={addToast} onBarrierChange={() => {}} />}
         </main>
       </div>
 
