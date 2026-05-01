@@ -15,6 +15,12 @@ export default function SecurityAlertPanel({ onToast, onAlertResolved }: Securit
   const [alerts, setAlerts] = useState<SecurityAlert[]>(securityAlerts.filter(a => !a.resolved));
 
   const resolveAlert = (alertId: string, action: 'confirm' | 'lock') => {
+    // Đánh dấu resolved trong nguồn gốc để không hiện lại khi re-render
+    const originalAlert = securityAlerts.find(a => a.id === alertId);
+    if (originalAlert) {
+      originalAlert.resolved = true;
+    }
+    
     const remaining = alerts.filter(a => a.id !== alertId);
     setAlerts(remaining);
     if (remaining.length === 0) onAlertResolved();

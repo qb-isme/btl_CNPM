@@ -122,6 +122,8 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
     userType: 'student' | 'staff' | 'guest';
     studentId?: string;
     faculty?: string;
+    checkInTime?: string;
+    zone?: string;
   } | null>(null);
 
   const handleSearch = () => {
@@ -205,13 +207,15 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
 
   // Giả lập quét thẻ - trong thực tế sẽ gọi API đọc thẻ
   const handleScanCard = () => {
-    // Giả lập quét thẻ và lấy thông tin
+    // Giả lập quét thẻ và lấy thông tin (bao gồm thời gian vào và khu gửi từ thẻ)
     const mockCardData = {
       cardId: 'CARD-0099',
       ownerName: 'Nguyễn Văn An',
       userType: 'student' as const,
       studentId: 'B21DCCN045',
       faculty: 'CNTT',
+      checkInTime: '1 giờ trước',
+      zone: 'Khu B',
     };
     setRecoveryCardId(mockCardData.cardId);
     setRecoveryCardInfo(mockCardData);
@@ -712,25 +716,25 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
                   <p className="text-xs font-medium text-[#64748B] uppercase tracking-wide mb-2">
                     Thông tin từ thẻ
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex justify-between">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <div className="flex gap-2">
                       <span className="text-[#64748B]">Chủ xe:</span>
                       <span className="font-semibold text-[#1E293B]">{recoveryCardInfo.ownerName}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex gap-2">
                       <span className="text-[#64748B]">Loại:</span>
                       <span className="font-semibold text-[#0284C7]">
                         {recoveryCardInfo.userType === 'student' ? 'Sinh viên' : recoveryCardInfo.userType === 'staff' ? 'Cán bộ' : 'Khách'}
                       </span>
                     </div>
                     {recoveryCardInfo.studentId && (
-                      <div className="flex justify-between">
+                      <div className="flex gap-2">
                         <span className="text-[#64748B]">MSSV/Mã CB:</span>
                         <span className="font-mono text-[#1E293B]">{recoveryCardInfo.studentId}</span>
                       </div>
                     )}
                     {recoveryCardInfo.faculty && (
-                      <div className="flex justify-between">
+                      <div className="flex gap-2">
                         <span className="text-[#64748B]">Khoa/Phòng:</span>
                         <span className="text-[#1E293B]">{recoveryCardInfo.faculty}</span>
                       </div>
@@ -754,21 +758,21 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
                   <p className="text-xs text-[#64748B] mt-1">Hình ảnh sẽ được chụp tự động khi xác nhận</p>
                 </div>
 
-                {/* Thông tin phiên khôi phục */}
+                {/* Thông tin phiên khôi phục - lấy từ thẻ */}
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-2">
-                    Thông tin phiên khôi phục
+                    Thông tin phiên khôi phục (từ thẻ)
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex justify-between">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <div className="flex gap-2">
                       <span className="text-amber-600">Thời gian vào:</span>
-                      <span className="font-semibold text-amber-800">Hiện tại</span>
+                      <span className="font-semibold text-amber-800">{recoveryCardInfo.checkInTime || '1 giờ trước'}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex gap-2">
                       <span className="text-amber-600">Khu gửi:</span>
-                      <span className="font-semibold text-amber-800">Cổng ra</span>
+                      <span className="font-semibold text-amber-800">{recoveryCardInfo.zone || 'Khu B'}</span>
                     </div>
-                    <div className="flex justify-between col-span-2">
+                    <div className="flex gap-2 col-span-2">
                       <span className="text-amber-600">Ghi chú:</span>
                       <span className="font-semibold text-amber-800">Phiên khôi phục do lỗi hệ thống</span>
                     </div>
@@ -780,7 +784,7 @@ export default function ExitException({ onToast, onBarrierChange }: ExitExceptio
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700 flex items-start gap-2">
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
               <span>
-                Hành động này sẽ tạo phiên mới với thời gian vào = hiện tại và ghi log sự cố vào hệ thống.
+                Hành động này sẽ khôi phục phiên với thông tin từ thẻ (thời gian vào, khu gửi) và ghi log sự cố vào hệ thống.
               </span>
             </div>
 
