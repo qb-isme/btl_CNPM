@@ -114,3 +114,149 @@ export function updateSlotStatus(slotId: string, status: ParkingSlot['status'], 
   }
   return null;
 }
+
+// ─── Gate Operations (Module 5) ──────────────────────────────────────────────
+
+export type UserType = 'guest' | 'student' | 'staff';
+export type CardStatus = 'ok' | 'damaged' | 'lost' | 'none';
+export type SessionStatus = 'active' | 'exited' | 'flagged';
+export type AlertType = 'plate_mismatch' | 'blacklist';
+export type EmergencyType = 'ambulance' | 'fire' | 'vip' | 'hardware';
+export type TicketStatus = 'pending' | 'resolved';
+
+export interface ActiveSession {
+  id: string;
+  licensePlate: string;
+  cardId: string | null;
+  userType: UserType;
+  ownerName: string;
+  studentId?: string;
+  checkInTime: Date;
+  checkInPhoto: string;
+  zone: string;
+  slotId: string;
+  status: SessionStatus;
+  cardStatus: CardStatus;
+}
+
+export interface SecurityAlert {
+  id: string;
+  sessionId: string;
+  licensePlate: string;
+  alertType: AlertType;
+  detectedAt: Date;
+  notes: string;
+  resolved: boolean;
+}
+
+export interface IncidentTicket {
+  id: string;
+  emergencyType: EmergencyType;
+  licensePlate: string | null;
+  createdAt: Date;
+  status: TicketStatus;
+  notes: string;
+  operatorNotes?: string;
+}
+
+export const activeSessions: ActiveSession[] = [
+  {
+    id: 'sess-001',
+    licensePlate: '51A-12345',
+    cardId: 'CARD-0012',
+    userType: 'student',
+    ownerName: 'Trần Văn Bình',
+    studentId: 'B20DCCN001',
+    checkInTime: new Date(Date.now() - 1000 * 60 * 90),
+    checkInPhoto: 'https://placehold.co/200x140/1E293B/94A3B8?text=Check-in+Photo',
+    zone: 'Khu A',
+    slotId: 'zone-a-slot-3',
+    status: 'active',
+    cardStatus: 'ok',
+  },
+  {
+    id: 'sess-002',
+    licensePlate: '29B-54321',
+    cardId: 'CARD-0034',
+    userType: 'staff',
+    ownerName: 'Lê Thị Hương',
+    studentId: 'CB00042',
+    checkInTime: new Date(Date.now() - 1000 * 60 * 200),
+    checkInPhoto: 'https://placehold.co/200x140/1E293B/94A3B8?text=Check-in+Photo',
+    zone: 'Khu Cán bộ',
+    slotId: 'zone-e-slot-7',
+    status: 'active',
+    cardStatus: 'ok',
+  },
+  {
+    id: 'sess-003',
+    licensePlate: '30F-99887',
+    cardId: null,
+    userType: 'guest',
+    ownerName: '',
+    checkInTime: new Date(Date.now() - 1000 * 60 * 45),
+    checkInPhoto: 'https://placehold.co/200x140/1E293B/94A3B8?text=Check-in+Photo',
+    zone: 'Khu F',
+    slotId: 'zone-f-slot-11',
+    status: 'active',
+    cardStatus: 'lost',
+  },
+  {
+    id: 'sess-004',
+    licensePlate: '43C-77001',
+    cardId: 'CARD-0099',
+    userType: 'student',
+    ownerName: 'Nguyễn Minh Đức',
+    studentId: 'B21DCCN099',
+    checkInTime: new Date(Date.now() - 1000 * 60 * 30),
+    checkInPhoto: 'https://placehold.co/200x140/1E293B/94A3B8?text=Check-in+Photo',
+    zone: 'Khu B',
+    slotId: 'zone-b-slot-5',
+    status: 'flagged',
+    cardStatus: 'ok',
+  },
+];
+
+export const securityAlerts: SecurityAlert[] = [
+  {
+    id: 'alert-001',
+    sessionId: 'sess-004',
+    licensePlate: '43C-77001',
+    alertType: 'plate_mismatch',
+    detectedAt: new Date(Date.now() - 1000 * 60 * 2),
+    notes: 'Camera ra phát hiện biển số không khớp: xe vào là 43C-77001, camera đọc 43C-77000.',
+    resolved: false,
+  },
+];
+
+export const incidentTickets: IncidentTicket[] = [
+  {
+    id: 'ticket-001',
+    emergencyType: 'ambulance',
+    licensePlate: '43Z-11122',
+    createdAt: new Date(Date.now() - 1000 * 60 * 15),
+    status: 'pending',
+    notes: 'Xe cấp cứu vào khu nội trú – cần giải trình thêm.',
+  },
+];
+
+export const PARKING_RATE_PER_HOUR = 5000;
+export const LOST_CARD_PENALTY = 50000;
+export const GUEST_LOST_CARD_PENALTY = 100000;
+export const ILLEGAL_EXIT_FINE = 100000;
+
+export function calcParkingFee(checkInTime: Date): number {
+  const hours = Math.max(1, Math.ceil((Date.now() - checkInTime.getTime()) / (1000 * 60 * 60)));
+  return hours * PARKING_RATE_PER_HOUR;
+}
+
+export function formatVND(amount: number): string {
+  return amount.toLocaleString('vi-VN') + 'đ';
+}
+
+export function formatDuration(checkInTime: Date): string {
+  const minutes = Math.floor((Date.now() - checkInTime.getTime()) / 60000);
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m} phút`;
+}
