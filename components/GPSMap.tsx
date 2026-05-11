@@ -7,6 +7,7 @@ interface GPSMapProps {
   selectedZoneId: string | null
   selectedSlotName: string | null
   isNavigating: boolean
+  routeMode?: 'gps' | 'default'
   onClose: () => void
 }
 
@@ -29,17 +30,28 @@ const zoneInfo: Record<string, { name: string }> = {
   'F': { name: 'Khu F (Mở rộng)' },
 };
 
-export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating, onClose }: GPSMapProps) {
+export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating, routeMode = 'gps', onClose }: GPSMapProps) {
   const [isSimulating, setIsSimulating] = useState(false)
   const [currentStepIndex, setCurrentStepIndex] = useState(-1)
   
   // Tọa độ cổng vào cố định ở chính giữa
   const ENTRANCE_X = 50
   const ENTRANCE_Y = 95
+
+  // Tọa độ mô phỏng vị trí hiện tại khi người dùng cho phép GPS.
+  // Cố tình đặt khác cổng vào để phân biệt rõ với trường hợp Từ chối GPS.
+  const GPS_START_X = 58
+  const GPS_START_Y = 78
+
+  const isGpsMode = routeMode === 'gps'
+  const sourceX = isGpsMode ? GPS_START_X : ENTRANCE_X
+  const sourceY = isGpsMode ? GPS_START_Y : ENTRANCE_Y
+  const routeColor = isGpsMode ? '#10B981' : '#0284C7'
+  const routeDashArray = isGpsMode ? '0' : '8, 6'
   
-  const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: ENTRANCE_X, y: ENTRANCE_Y }) 
-  const [gpsStatus, setGpsStatus] = useState<'pending' | 'granted' | 'denied'>('pending')
-  const [hasRealGPS, setHasRealGPS] = useState(false)
+  const [userPosition, setUserPosition] = useState<{ x: number; y: number }>({ x: sourceX, y: sourceY }) 
+  const [gpsStatus, setGpsStatus] = useState<'pending' | 'granted' | 'denied'>(isGpsMode ? 'granted' : 'denied')
+  const [hasRealGPS, setHasRealGPS] = useState(isGpsMode)
 
   const zone = selectedZoneId ? zoneInfo[selectedZoneId] : null
   const slots = selectedZoneId ? generateSlots(selectedZoneId) : []
@@ -53,28 +65,18 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   const targetX = isLeftColumn ? 22.5 : 77.5 // Cột trái 22.5%, Cột phải 77.5%
   const targetY = selectedSlotIndex >= 0 ? 21.25 + (rowIndex * 12.5) : 50 // Căn dọc theo các ô đỗ
 
-  // Xin quyền GPS
+  // Đồng bộ chế độ chỉ đường với lựa chọn ở popup GPS.
+  // - Cho phép GPS: bắt đầu từ vị trí hiện tại mô phỏng.
+  // - Từ chối GPS: bắt đầu từ cổng vào mặc định.
   useEffect(() => {
-    if (isNavigating && gpsStatus === 'pending') {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          () => {
-            setGpsStatus('granted')
-            setHasRealGPS(true)
-            setUserPosition({ x: ENTRANCE_X - 1 + Math.random() * 2, y: ENTRANCE_Y - 2 + Math.random() * 2 })
-          },
-          () => {
-            setGpsStatus('denied')
-            setHasRealGPS(false)
-            setUserPosition({ x: ENTRANCE_X, y: ENTRANCE_Y })
-          }
-        )
-      } else {
-        setGpsStatus('denied')
-        setUserPosition({ x: ENTRANCE_X, y: ENTRANCE_Y })
-      }
-    }
-  }, [isNavigating, gpsStatus])
+    if (!isNavigating) return
+
+    setIsSimulating(false)
+    setCurrentStepIndex(-1)
+    setGpsStatus(isGpsMode ? 'granted' : 'denied')
+    setHasRealGPS(isGpsMode)
+    setUserPosition({ x: sourceX, y: sourceY })
+  }, [isNavigating, routeMode])
 
   // Các bước chỉ dẫn cố định
   const getNavigationSteps = () => {
@@ -86,15 +88,15 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
     return [
       {
         icon: ArrowUp,
-        text: 'Đi thẳng vào bãi đỗ',
-        detail: 'Từ cổng vào đi thẳng lên',
-        position: { x: ENTRANCE_X, y: (ENTRANCE_Y + targetY) / 2 }
+        text: isGpsMode ? 'Di chuyển từ vị trí hiện tại' : 'Đi thẳng vào bãi đỗ',
+        detail: isGpsMode ? 'Đi theo tuyến GPS mô phỏng trên sơ đồ' : 'Từ cổng vào đi thẳng lên',
+        position: { x: sourceX, y: (sourceY + targetY) / 2 }
       },
       {
         icon: isLeftColumn ? CornerDownLeft : CornerDownRight,
         text: `Rẽ ${isLeftColumn ? 'trái' : 'phải'} vào ô đỗ`,
         detail: `Hàng đỗ xe thứ ${rowNumber}`,
-        position: { x: ENTRANCE_X, y: targetY }
+        position: { x: sourceX, y: targetY }
       },
       {
         icon: CheckCircle2,
@@ -111,7 +113,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   const startSimulation = () => {
     setIsSimulating(true)
     setCurrentStepIndex(-1)
-    setUserPosition(hasRealGPS ? { x: ENTRANCE_X - 1 + Math.random() * 2, y: ENTRANCE_Y - 2 } : { x: ENTRANCE_X, y: ENTRANCE_Y })
+    setUserPosition({ x: sourceX, y: sourceY })
 
     navigationSteps.forEach((step, index) => {
       setTimeout(() => {
@@ -128,7 +130,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
   }
 
   const routeInfo = {
-    distance: `${Math.round(15 + Math.abs(ENTRANCE_X - targetX) * 0.4 + (ENTRANCE_Y - targetY) * 0.4)} m`,
+    distance: `${Math.round(15 + Math.abs(sourceX - targetX) * 0.4 + Math.abs(sourceY - targetY) * 0.4)} m`,
     duration: '1-2 phút'
   }
 
@@ -143,7 +145,7 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
               <h2 className="font-bold text-[#1E293B] text-xl">Sơ đồ 2D - {zone?.name}</h2>
               <div className="flex items-center gap-2 text-sm text-[#64748B]">
                 <LocateFixed size={14} className={hasRealGPS ? 'text-[#10B981]' : 'text-[#F59E0B]'} />
-                <span>{hasRealGPS ? 'GPS đã kết nối' : 'Mô phỏng từ cổng vào'}</span>
+                <span>{hasRealGPS ? 'Chỉ đường từ vị trí GPS hiện tại' : 'Chỉ đường mặc định từ cổng vào'}</span>
               </div>
             </div>
           </div>
@@ -252,15 +254,15 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
           {isNavigating && selectedSlotIndex >= 0 && (
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
               <path
-                d={`M ${ENTRANCE_X}% ${ENTRANCE_Y}% L ${ENTRANCE_X}% ${targetY}% L ${targetX}% ${targetY}%`}
+                d={`M ${sourceX}% ${sourceY}% L ${sourceX}% ${targetY}% L ${targetX}% ${targetY}%`}
                 fill="none"
-                stroke="#0284C7"
+                stroke={routeColor}
                 strokeWidth="4"
-                strokeDasharray="8, 6"
+                strokeDasharray={routeDashArray}
                 className="drop-shadow-sm"
               />
-              {/* Chấm tròn ở cổng */}
-              <circle cx={`${ENTRANCE_X}%`} cy={`${ENTRANCE_Y}%`} r="4" fill="#0284C7" />
+              {/* Chấm tròn điểm bắt đầu */}
+              <circle cx={`${sourceX}%`} cy={`${sourceY}%`} r="4" fill={routeColor} />
               {/* Chấm tròn nhấp nháy ở đích */}
               <circle cx={`${targetX}%`} cy={`${targetY}%`} r="6" fill="#10B981" stroke="white" strokeWidth="2" className="animate-pulse" />
             </svg>
@@ -273,13 +275,13 @@ export default function GPSMap({ selectedZoneId, selectedSlotName, isNavigating,
               style={{ left: `${userPosition.x}%`, top: `${userPosition.y}%` }}
             >
               <div className="relative">
-                <div className="w-6 h-6 bg-[#0284C7] rounded-full border-2 border-white shadow-md flex items-center justify-center">
+                <div className={`w-6 h-6 rounded-full border-2 border-white shadow-md flex items-center justify-center ${isGpsMode ? 'bg-[#10B981]' : 'bg-[#0284C7]'}`}>
                   <div className="w-2 h-2 bg-white rounded-full"></div>
                 </div>
-                <div className="absolute inset-0 w-6 h-6 bg-[#0284C7] rounded-full animate-ping opacity-40"></div>
+                <div className={`absolute inset-0 w-6 h-6 rounded-full animate-ping opacity-40 ${isGpsMode ? 'bg-[#10B981]' : 'bg-[#0284C7]'}`}></div>
               </div>
-              <div className="absolute top-7 left-1/2 -translate-x-1/2 bg-white text-[#0284C7] text-[9px] font-bold px-1.5 py-0.5 rounded border border-[#0284C7] whitespace-nowrap shadow">
-                BẠN
+              <div className={`absolute top-7 left-1/2 -translate-x-1/2 bg-white text-[9px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap shadow ${isGpsMode ? 'text-[#10B981] border border-[#10B981]' : 'text-[#0284C7] border border-[#0284C7]'}`}>
+                {isGpsMode ? 'GPS CỦA BẠN' : 'CỔNG VÀO'}
               </div>
             </div>
           )}
