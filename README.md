@@ -125,7 +125,7 @@ Ghi chú:
 
 | Username | Password | Role | Mục đích test |
 |---|---|---|---|
-| `2410297` | `123` | Ban quản lý | Chính sách giá, báo cáo UC7, xem map |
+| `bql01` | `123` | Ban quản lý | Chính sách giá, báo cáo UC7, xem map |
 | `it01` | `123` | IT | Quản lý phân quyền UC6 |
 | `bv01` | `123` | Vận hành | UC1, UC4 tickets, UC5, UC5.4, cấu hình bãi đỗ |
 | `sv01` | `123` | Sinh viên | UC2, UC3, UC4 report |
