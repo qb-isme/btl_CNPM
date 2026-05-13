@@ -23,6 +23,7 @@ import {
   type ParkingZone,
   type SlotStatus,
   type ZoneId,
+  type ZoneMode,
 } from "@/lib/parking-data";
 
 type TabKey = "pricing" | "users" | "zones";
@@ -62,6 +63,7 @@ const INITIAL_USERS: InternalUser[] = [
 ];
 
 const roleOptions: RoleType[] = ["Nhân viên vận hành", "Kỹ thuật viên", "Quản trị hệ thống"];
+const INTERNAL_USERS_STORAGE_KEY = "bk_internal_users_v1";
 
 type SystemRole = "Ban quản lý" | "IT" | "Vận hành" | "Sinh viên" | "Không xác định";
 
@@ -120,6 +122,48 @@ function getZoneCardClass(zone: ParkingZone, isSelected: boolean) {
   return `${selectedRing} bg-[#10B981] text-white`;
 }
 
+function readInternalUsersFromStorage(): InternalUser[] | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(INTERNAL_USERS_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+
+    const validUsers = parsed.filter((user): user is InternalUser => {
+      return (
+        user &&
+        typeof user.id === "number" &&
+        typeof user.name === "string" &&
+        typeof user.email === "string" &&
+        typeof user.role === "string" &&
+        typeof user.active === "boolean"
+      );
+    });
+
+    return validUsers.length > 0 ? validUsers : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeInternalUsersToStorage(users: InternalUser[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(INTERNAL_USERS_STORAGE_KEY, JSON.stringify(users));
+}
+
+function getDisplayNameFromEmail(email: string) {
+  const prefix = email.split("@")[0]?.trim();
+  if (!prefix) return "Tài khoản nội bộ";
+  return prefix
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function getSlotColorClass(status: SlotStatus, isSelected: boolean, disabled: boolean, isPending: boolean) {
   if (disabled) {
     return "bg-[#94A3B8]/40 text-white cursor-not-allowed";
@@ -159,6 +203,9 @@ export default function SettingsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState("");
   const [reservationReason, setReservationReason] = useState("");
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [userDeleteConfirmId, setUserDeleteConfirmId] = useState<number | null>(null);
+  const [usersLoaded, setUsersLoaded] = useState(false);
 
   const selectedZone = zones.find((zone) => zone.id === selectedZoneId) ?? zones[0];
   const selectedZoneDisabled = selectedZone.mode !== "active";
@@ -184,6 +231,19 @@ export default function SettingsPage() {
       setCurrentUserRole("Không xác định");
     }
   }, []);
+
+  useEffect(() => {
+    const storedUsers = readInternalUsersFromStorage();
+    if (storedUsers) {
+      setUsers(storedUsers);
+    }
+    setUsersLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!usersLoaded) return;
+    writeInternalUsersToStorage(users);
+  }, [users, usersLoaded]);
 
   useEffect(() => {
     const storedZones = readParkingZonesFromStorage();
@@ -223,7 +283,7 @@ export default function SettingsPage() {
 
   const handleEmailChange = (value: string) => {
     setNewEmail(value);
-    const emailExists = users.some((user) => user.email.toLowerCase() === value.trim().toLowerCase());
+    const emailExists = users.some((user) => user.id !== editingUserId && user.email.toLowerCase() === value.trim().toLowerCase());
     if (emailExists) {
       setEmailError("Tài khoản này đã có quyền hạn vừa được nhập!");
     } else {
@@ -235,7 +295,7 @@ export default function SettingsPage() {
     setNewRole(value);
     if (!newEmail.trim()) return;
     const duplicate = users.some(
-      (user) => user.email.toLowerCase() === newEmail.trim().toLowerCase() && user.role === value
+      (user) => user.id !== editingUserId && user.email.toLowerCase() === newEmail.trim().toLowerCase() && user.role === value
     );
     setEmailError(duplicate ? "Tài khoản này đã có quyền hạn vừa được nhập!" : "");
   };
@@ -260,21 +320,71 @@ export default function SettingsPage() {
     setNewVehicle("");
   };
 
-  const handleAddUser = () => {
+  const resetUserForm = () => {
+    setEditingUserId(null);
+    setNewEmail("");
+    setNewRole("");
+    setEmailError("");
+  };
+
+  const handleEditUser = (user: InternalUser) => {
+    if (!canManageUsers) return;
+    setEditingUserId(user.id);
+    setNewEmail(user.email);
+    setNewRole(user.role);
+    setEmailError("");
+  };
+
+  const handleSubmitUser = () => {
     if (!canManageUsers) return;
     if (!newEmail.trim() || !newRole || emailError) return;
 
+    const normalizedEmail = newEmail.trim();
+
+    if (editingUserId !== null) {
+      setUsers((previous) =>
+        previous.map((user) =>
+          user.id === editingUserId
+            ? {
+                ...user,
+                email: normalizedEmail,
+                name: getDisplayNameFromEmail(normalizedEmail),
+                role: newRole as RoleType,
+              }
+            : user
+        )
+      );
+      resetUserForm();
+      return;
+    }
+
     const nextUser: InternalUser = {
       id: Date.now(),
-      name: newEmail.split("@")[0],
-      email: newEmail.trim(),
+      name: getDisplayNameFromEmail(normalizedEmail),
+      email: normalizedEmail,
       role: newRole as RoleType,
       active: true,
     };
 
     setUsers((previous) => [...previous, nextUser]);
-    setNewEmail("");
-    setNewRole("");
+    resetUserForm();
+  };
+
+  const handleDeleteUser = (userId: number) => {
+    if (!canManageUsers) return;
+    setUserDeleteConfirmId(userId);
+  };
+
+  const confirmDeleteUser = () => {
+    if (!canManageUsers || userDeleteConfirmId === null) return;
+
+    setUsers((previous) => previous.filter((user) => user.id !== userDeleteConfirmId));
+
+    if (editingUserId === userDeleteConfirmId) {
+      resetUserForm();
+    }
+
+    setUserDeleteConfirmId(null);
   };
 
   const handleDisablePolicy = (policyId: number) => {
@@ -339,6 +449,11 @@ export default function SettingsPage() {
     setReservationReason("");
   };
 
+  const handleChangeZoneMode = (mode: ZoneMode) => {
+    if (!canManageZones) return;
+    setZones((previous) => previous.map((zone) => (zone.id === selectedZoneId ? { ...zone, mode } : zone)));
+    setSelectedSlots([]);
+  };
 
   const switchTab = (tab: TabKey) => {
     if (!tabPermissions[tab]) return;
@@ -565,10 +680,22 @@ export default function SettingsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-5">
-                          <button type="button" disabled={!canManageUsers} className="mr-3 text-[#94A3B8] transition hover:text-[#0284C7] disabled:cursor-not-allowed disabled:opacity-40">
+                          <button
+                            type="button"
+                            onClick={() => handleEditUser(user)}
+                            disabled={!canManageUsers}
+                            title="Chỉnh sửa tài khoản"
+                            className="mr-3 text-[#94A3B8] transition hover:text-[#0284C7] disabled:cursor-not-allowed disabled:opacity-40"
+                          >
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button type="button" disabled={!canManageUsers} className="text-[#94A3B8] transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={!canManageUsers}
+                            title="Thu hồi / xóa quyền tài khoản"
+                            className="text-[#94A3B8] transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>
@@ -581,7 +708,7 @@ export default function SettingsPage() {
 
             <aside className="h-fit overflow-hidden rounded-2xl bg-[#F1F5F9] shadow-sm">
               <div className="bg-[#0284C7] px-6 py-4 text-white">
-                <h3 className="text-base font-black uppercase tracking-wide">Cập nhật nhóm quyền</h3>
+                <h3 className="text-base font-black uppercase tracking-wide">{editingUserId !== null ? "Chỉnh sửa tài khoản" : "Cập nhật nhóm quyền"}</h3>
               </div>
               <div className="space-y-4 p-6">
                 <div>
@@ -624,12 +751,21 @@ export default function SettingsPage() {
                 )}
                 <button
                   type="button"
-                  onClick={handleAddUser}
+                  onClick={handleSubmitUser}
                   disabled={!canManageUsers || !!emailError || !newEmail.trim() || !newRole}
                   className="w-full rounded-lg bg-[#0284C7] py-3 font-black text-white transition hover:bg-[#0369A1] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Xác nhận
+                  {editingUserId !== null ? "Lưu thay đổi" : "Xác nhận"}
                 </button>
+                {editingUserId !== null && (
+                  <button
+                    type="button"
+                    onClick={resetUserForm}
+                    className="w-full rounded-lg border border-[#CBD5E1] bg-white py-3 font-black text-[#334155] transition hover:bg-[#F8FAFC]"
+                  >
+                    Hủy chỉnh sửa
+                  </button>
+                )}
               </div>
             </aside>
           </section>
@@ -741,6 +877,45 @@ export default function SettingsPage() {
                     <p className="text-sm font-semibold text-[#64748B]">{selectedZone.type} · {getZoneStatusLabel(selectedZone)}</p>
                   </div>
 
+                  <h4 className="mb-2 text-sm font-black uppercase tracking-wider text-[#475569]">Trạng thái phân khu</h4>
+                  <div className="mb-6 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleChangeZoneMode("active")}
+                      disabled={!canManageZones}
+                      className={`rounded-lg border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selectedZone.mode === "active"
+                          ? "border-[#10B981] bg-[#10B981] text-white"
+                          : "border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
+                      }`}
+                    >
+                      Mở
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChangeZoneMode("maintenance")}
+                      disabled={!canManageZones}
+                      className={`rounded-lg border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selectedZone.mode === "maintenance"
+                          ? "border-[#F59E0B] bg-[#F59E0B] text-white"
+                          : "border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
+                      }`}
+                    >
+                      Bảo trì
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChangeZoneMode("offline")}
+                      disabled={!canManageZones}
+                      className={`rounded-lg border px-3 py-3 text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        selectedZone.mode === "offline"
+                          ? "border-[#94A3B8] bg-[#94A3B8] text-white"
+                          : "border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
+                      }`}
+                    >
+                      Mất tín hiệu
+                    </button>
+                  </div>
 
                   <h4 className="mb-2 text-sm font-black uppercase tracking-wider text-[#475569]">Các ô đang chọn</h4>
                   <div className="mb-6 min-h-[44px] rounded-lg border border-[#CBD5E1] bg-white p-3">
@@ -818,6 +993,36 @@ export default function SettingsPage() {
                 className="flex-1 rounded-lg bg-red-600 px-4 py-3 font-black text-white transition hover:bg-red-700"
               >
                 Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userDeleteConfirmId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="max-w-md rounded-2xl bg-white p-8 shadow-2xl">
+            <div className="mb-4 flex justify-center">
+              <Trash2 className="h-16 w-16 text-red-500" />
+            </div>
+            <h2 className="mb-2 text-center text-xl font-black text-[#0F172A]">Xác nhận thu hồi quyền</h2>
+            <p className="mb-6 text-center text-[#64748B]">
+              Bạn có chắc muốn xóa tài khoản này khỏi danh sách phân quyền nội bộ?
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setUserDeleteConfirmId(null)}
+                className="flex-1 rounded-lg border border-[#CBD5E1] bg-white px-4 py-3 font-black text-[#334155] transition hover:bg-[#F8FAFC]"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteUser}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-3 font-black text-white transition hover:bg-red-700"
+              >
+                Xóa quyền
               </button>
             </div>
           </div>
